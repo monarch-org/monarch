@@ -1,9 +1,9 @@
 monarch
 =======
 
-HEY WATCHOUT THIS IS IN NO WAY GURANTEED TO WORK.  HALF IMPLEMENTED FEATURES
+**HEY WATCHOUT THIS IS IN NO WAY GURANTEED TO WORK.  HALF IMPLEMENTED FEATURES**
 
-[Documentation Work in Progress]
+**[Documentation Work in Progress]**
 
 "migrations should happen naturally"
 
@@ -78,6 +78,7 @@ Do whatever you want in that `run` method. I mean anything!  Go crazy wild man.
 
 Configuration
 -------------
+**[Not Implemented Yet]**
 
 By default it will look in ./migrations/settings.py.
 
