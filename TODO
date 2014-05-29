@@ -1,0 +1,6 @@
+* show the status of migrations in the *list*
+* support an application specific ini file
+* add sqlight support
+
+* add test_migration support
+* rollback support
