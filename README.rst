@@ -32,6 +32,7 @@ Usage
 -----
 
 1) Generate a Migration
+
 .. code:: bash
 
     monarch create add_indexes_to_user_table
