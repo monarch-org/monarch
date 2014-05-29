@@ -1,7 +1,7 @@
 monarch
 =======
 
-**HEY WATCHOUT THIS IS IN NO WAY GURANTEED TO WORK.  HALF IMPLEMENTED FEATURES**
+**HEY WATCHOUT THIS IS IN NO WAY GURANTEED TO WORK.**
 
 **[Documentation Work in Progress]**
 
@@ -89,7 +89,6 @@ Do whatever you want in that `run` method. I mean anything!  Go crazy wild man.
 
 Configuration
 -------------
-**[Not Implemented Yet]**
 
 By default it will look in ./migrations/settings.py.
 
@@ -103,6 +102,8 @@ It should look something like this:
         DB_PORT = 27017
     }
 
+
+You can run `monarch init` to setup the initial file
 
 Road Map
 --------
