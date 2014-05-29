@@ -13,6 +13,16 @@ import collections
 import click
 from click import echo
 
+# Conditional Imports
+# Conditionals
+try:
+    import mongoengine
+    from mongoengine.connection import _get_db as _get_db
+except ImportError:
+    mongoengine = None
+    _get_db = None
+
+
 from .core import MongoBackedMigration, Migration
 
 MIGRATION_TEMPLATE = '''
@@ -33,18 +43,44 @@ UNDER_PAT = re.compile(r'_([a-z])')
 
 class Config(object):
 
-    MONGO = 'mongo'
-
     def __init__(self):
         self.migration_directory = None
-        self.datastore = Config.MONGO
+        self.config_directory = None
+
+    def configure_from_settings_file(self):
+        settings = import_module('migrations.settings')
+
+        if not hasattr(settings, 'PERSISTANCE'):
+            raise AttributeError('Configuration file should have a PERSISTANCE method set')
+
+        persistance = settings.PERSISTANCE
+        if 'MONGO' in persistance:
+            # this should be a dictionary like so:
+            #
+            # {'name': 'monarch', 'port': 27017}
+            #
+            self.mongo = persistance['MONGO']
+
+        else:
+            raise AttributeError('Expecting MONGO to be defined within PERSISTANCE')
+
+def establish_datastore_connection(config):
+
+    if config.mongo is not None:
+        mongo_name = config.mongo['name']
+        mongo_port = config.mongo['port']
+        mongoengine.connect(mongo_name, port=mongo_port)
+
+
 
 pass_config = click.make_pass_decorator(Config, ensure=True)
 
 @click.group()
-@click.option('--migration-directory', type=click.Path())
+@click.option('--migration-directory', '-m',
+              type=click.Path(), help='Where migration files will be stored and looked for')
+@click.option('--config-directory', '-c', type=click.Path(), help='Point to the configuration file to use')
 @pass_config
-def cli(config, migration_directory):
+def cli(config, migration_directory, config_directory):
     """ Your friendly migration manager
 
         To get help on a specific function you may append --help to the function
@@ -54,6 +90,15 @@ def cli(config, migration_directory):
     if migration_directory is None:
         migration_directory = './migrations'
     config.migration_directory = migration_directory
+
+    if config_directory is None:
+        config_directory = os.path.join(config.migration_directory, 'settings.py')
+    config.config_directory = config_directory
+
+    config.configure_from_settings_file()
+
+
+
 
 
 @cli.command()
@@ -106,6 +151,7 @@ def migrate(config):
     # key = name, value = MigrationClass
     migrations = find_migrations(config)
     if migrations:
+        establish_datastore_connection(config)
         for k, migration_class in migrations.iteritems():
             migration_instance = migration_class()
 
@@ -196,20 +242,5 @@ def create_migration_directory_if_necessary(dir):
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
-
-
-
-
-#
-# @manager.command
-# def test_migration():
-#     """
-#     This will copy either staging or production database your local database
-#     Run the pending migrations
-#     :return:
-#     """
-#     raise NotImplementedError
-#
-#
 
 
