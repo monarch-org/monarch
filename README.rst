@@ -42,6 +42,17 @@ Install
 Usage
 -----
 
+0) Configure
+
+In your application working directory run:
+
+.. code:: bash
+
+    monarch init
+
+This will create a migration/settings.py file for you.  Open it up and configure it to your needs.
+
+
 1) Generate a Migration
 
 .. code:: bash

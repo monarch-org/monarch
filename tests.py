@@ -89,6 +89,15 @@ def test_create_migration():
         assert result.exit_code == 0
 
 
+def test_initialization():
+    runner = CliRunner()
+    with runner.isolated_filesystem() as working_dir:
+        result = runner.invoke(cli, ['init'])
+        settings_file = os.path.join(working_dir, 'migrations/settings.py')
+        assert os.path.getsize(settings_file) > 0
+        assert result.exit_code == 0
+
+
 def ensure_current_migrations_module_is_loaded():
     # everytime within the same python process we add migrations we need to reload the migrations module
     # for it could be cached from a previous test
