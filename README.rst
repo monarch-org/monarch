@@ -3,6 +3,8 @@ monarch
 
 HEY WATCHOUT THIS IS IN NO WAY GURANTEED TO WORK.  HALF IMPLEMENTED FEATURES
 
+[Documentation Work in Progress]
+
 "migrations should happen naturally"
 
 |Build Status|
@@ -17,9 +19,18 @@ What makes *monarch* unique is what it does not supply:
 - *monarch* does not provide a DSL or DDL for database specific migrations (like South and alembic)
 - *monarch* does not care which database you use, mongo, postres -- it does matter to us
 
-The main usecase that was the inspiration of this tool is adding a migration to a feature using CI
+The main use-case that was the inspiration of this tool is adding a migration to a feature using CI
 
-[Documentation Work in Progress]
+When we develop a feature we implement the following:
+
+- the feature
+- tests
+- necessary migrations that move the production data to where it needs to be to rock the new feature
+
+So now with *monarch* we can implement a Pull Request(PR) with the feature, test and migration.
+And once your Continuous Integration says that your tests are cool then you can deploy and run
+the pending migrations needed for your feature.
+
 
 Install
 -------
@@ -81,3 +92,7 @@ It should look something like this:
     }
 
 
+Road Map
+--------
+
+- Be able to test migrations `monarch test`
