@@ -9,6 +9,7 @@ try:
 except ImportError as e:
     mongoengine = None
 
+
 class Migration(object):
     """
     All migration will inherit from this.

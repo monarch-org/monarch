@@ -64,6 +64,7 @@ class Config(object):
         else:
             raise AttributeError('Expecting MONGO to be defined within PERSISTANCE')
 
+
 def establish_datastore_connection(config):
 
     if config.mongo is not None:
@@ -72,8 +73,8 @@ def establish_datastore_connection(config):
         mongoengine.connect(mongo_name, port=mongo_port)
 
 
-
 pass_config = click.make_pass_decorator(Config, ensure=True)
+
 
 @click.group()
 @click.option('--migration-directory', '-m',
@@ -96,9 +97,6 @@ def cli(config, migration_directory, config_directory):
     config.config_directory = config_directory
 
     config.configure_from_settings_file()
-
-
-
 
 
 @cli.command()
@@ -196,6 +194,7 @@ def init(config):
 
     echo(msg)
 
+
 def find_migrations(config):
     migrations = {}
     click.echo("fm 1 cwd: {}".format(os.getcwd()))
@@ -203,7 +202,8 @@ def find_migrations(config):
         migration_name = os.path.splitext(os.path.basename(file))[0]
         migration_module = import_module("migrations.{}".format(migration_name))
         for name, obj in inspect.getmembers(migration_module):
-            if inspect.isclass(obj) and re.search('Migration$', name) and name not in ['BaseMigration', 'MongoBackedMigration']:
+            if inspect.isclass(obj) and re.search('Migration$', name) and name not in ['BaseMigration',
+                                                                                       'MongoBackedMigration']:
                 migrations[migration_name] = obj
 
     # 2) Ensure that the are ordered
@@ -242,5 +242,3 @@ def create_migration_directory_if_necessary(dir):
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
-
-

@@ -43,16 +43,29 @@ PERSISTANCE = {{
 }}
 """.format(mongo_name=mongo_name, mongo_port=mongo_port)
 
+TEST_MIGRATION = """
+from monarch import MongoBackedMigration
+
+class {migration_class_name}(MongoBackedMigration):
+
+    def run(self):
+        print("running a migration with no failure")
+"""
+
+TEST_FAILED_MIGRATION = """
+from monarch import MongoBackedMigration
+
+class {migration_class_name}(MongoBackedMigration):
+
+    def run(self):
+        print("running a migration with failure")
+        raise Exception('Yikes we messed up the database -- oh nooooooooo')
+"""
+
 
 def no_op():
     pass
 
-# def establish_mongo_connection():
-#     mongo_name = os.environ.get('MONARCH_MONGO_DB_NAME', 'test_monarch')
-#     mongo_port = int(os.environ.get('MONARCH_MONGO_DB_PORT', 27017))
-#     mongoengine.connect(mongo_name, port=mongo_port)
-#     #start clean
-#     clear_mongo_database()
 
 @contextlib.contextmanager
 def isolated_filesystem_with_path():
@@ -87,7 +100,6 @@ def requires_mongoengine(func):
     return wrapper
 
 
-
 def clear_mongo_database():
     db = _get_db()
     if db.name == 'test_monarch':
@@ -106,6 +118,12 @@ def initialize_monarch(working_dir):
     m = import_module('migrations')
     reload(m)
 
+
+def ensure_current_migrations_module_is_loaded():
+    # everytime within the same python process we add migrations we need to reload the migrations module
+    # for it could be cached from a previous test
+    m = import_module('migrations')
+    reload(m)
 
 
 def test_create_migration():
@@ -130,49 +148,25 @@ def test_initialization():
         assert result.exit_code == 0
 
 
-def ensure_current_migrations_module_is_loaded():
-    # everytime within the same python process we add migrations we need to reload the migrations module
-    # for it could be cached from a previous test
-    m = import_module('migrations')
-    reload(m)
-
-
 def test_list_migrations():
     runner = CliRunner()
 
     with isolated_filesystem_with_path() as working_dir:
         initialize_monarch(working_dir)
         for migration_name in ['add_indexes', 'add_user_table', 'add_account_table']:
-            result = runner.invoke(cli, ['generate', migration_name])
+            runner.invoke(cli, ['generate', migration_name])
 
         ensure_current_migrations_module_is_loaded()
 
         result = runner.invoke(cli, ['list'])
         assert result.exit_code == 0
 
-TEST_MIGRATION = """
-from monarch import MongoBackedMigration
-
-class {migration_class_name}(MongoBackedMigration):
-
-    def run(self):
-        print("running a migration with no failure")
-"""
-
-TEST_FAILED_MIGRATION = """
-from monarch import MongoBackedMigration
-
-class {migration_class_name}(MongoBackedMigration):
-
-    def run(self):
-        print("running a migration with failure")
-        raise Exception('Yikes we messed up the database -- oh nooooooooo')
-"""
 
 def first_migration(working_dir):
     new_files_generated = glob(working_dir + '/*/*migration.py')
     assert len(new_files_generated) == 1
     return new_files_generated[0]
+
 
 @requires_mongoengine
 @with_setup(no_op, clear_mongo_database)
@@ -195,6 +189,7 @@ def test_run_migration():
         # echo('exception: {}'.format(result.exception))
         assert result.exit_code == 0
 
+
 @requires_mongoengine
 @with_setup(no_op, clear_mongo_database)
 def test_failed_migration():
@@ -215,7 +210,6 @@ def test_failed_migration():
         # echo('output: {}'.format(result.output))
         # echo('exception: {}'.format(result.exception))
         assert result.exit_code == -1
-
 
 
 if __name__ == "__main__":
