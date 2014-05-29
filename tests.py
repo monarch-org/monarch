@@ -12,7 +12,9 @@ from importlib import import_module
 import nose
 import click
 
+
 from click import echo
+from six.moves import reload_module
 from nose.tools import with_setup
 from click.testing import CliRunner
 from nose.plugins.skip import SkipTest
@@ -93,7 +95,7 @@ def ensure_current_migrations_module_is_loaded():
     # everytime within the same python process we add migrations we need to reload the migrations module
     # for it could be cached from a previous test
     m = import_module('migrations')
-    reload(m)
+    reload_module(m)
 
 
 def test_list_migrations():

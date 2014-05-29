@@ -13,7 +13,7 @@ setup(
         'Click',
         'jinja2',
     ],
-    tests_require=['nose'],
+    tests_require=['nose','six'],
     test_suite='nose.collector',
     entry_points='''
         [console_scripts]

@@ -1,3 +1,4 @@
+six
 nose
 jinja2
 click
