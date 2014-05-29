@@ -17,7 +17,6 @@ from click import echo
 from nose.tools import with_setup
 from click.testing import CliRunner
 from nose.plugins.skip import SkipTest
-from mongoengine.connection import _get_db
 
 # Conditionals
 try:
