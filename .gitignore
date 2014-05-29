@@ -23,3 +23,4 @@ credentials.json
 
 clone_staging.sh
 *.egg-info/
+migrations/
