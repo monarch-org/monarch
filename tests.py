@@ -74,7 +74,7 @@ def clear_mongo_database():
     if db.name == os.environ.get('MONARCH_MONGO_DB_NAME', 'test_monarch'):
         db.connection.drop_database(db.name)
     else:
-        print "Can not delete a non-testing database"
+        echo("Can not delete a non-testing database")
 
 
 def test_create_migration():
