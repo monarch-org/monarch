@@ -1,14 +1,13 @@
 from setuptools import setup
 
-
 setup(
     name='monarch',
-    version='0.0.2',
+    version='0.0.3',
     description='The un-migration migration tool',
     url='http://github.com/jtushman/monarch',
     author='Jonathan Tushman',
     author_email='jonathan@zefr.com',
-    py_modules=['monarch'],
+    packages=['monarch'],
     install_requires=[
         'Click',
         'jinja2',
