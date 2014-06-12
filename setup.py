@@ -1,13 +1,23 @@
+import os
 from setuptools import setup
+
+def get_packages():
+    # setuptools can't do the job :(
+    packages = []
+    for root, dirnames, filenames in os.walk('monarch'):
+        if '__init__.py' in filenames:
+            packages.append(".".join(os.path.split(root)).strip("."))
+
+    return packages
 
 setup(
     name='monarch',
-    version='0.0.3',
+    version='0.0.4',
     description='The un-migration migration tool',
     url='http://github.com/jtushman/monarch',
     author='Jonathan Tushman',
     author_email='jonathan@zefr.com',
-    packages=['monarch'],
+    packages=get_packages(),
     install_requires=[
         'Click',
         'jinja2',
