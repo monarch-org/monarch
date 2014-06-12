@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='monarch',
-    version='0.0.1',
+    version='0.0.2',
     description='The un-migration migration tool',
     url='http://github.com/jtushman/monarch',
     author='Jonathan Tushman',
