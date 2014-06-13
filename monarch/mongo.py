@@ -6,7 +6,7 @@ from click import echo
 from tempfile import mkdtemp
 from contextlib import contextmanager
 
-from monarch.core import Migration, MigrationHistoryStorage
+from monarch.models import Migration, MigrationHistoryStorage
 
 class MongoMigrationHistory(MigrationHistoryStorage, mongoengine.Document):
     """

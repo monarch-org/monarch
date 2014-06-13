@@ -2,7 +2,6 @@
 from datetime import datetime
 import re
 import os
-import sys
 import errno
 import inspect
 from importlib import import_module
@@ -13,25 +12,13 @@ import collections
 import click
 from click import echo
 
-# Conditional Imports
-# Conditionals
-try:
-    import mongoengine
-    from mongoengine.connection import _get_db as _get_db
-except ImportError:
-    mongoengine = None
-    _get_db = None
+import mongoengine
+from mongoengine.connection import _get_db
 
-
-try:
-    import sqlalchemy
-    from sqlalchemy.orm import sessionmaker
-except ImportError:
-    sqlalchemy = None
-    sessionmaker = None
-
-from .core import Migration
-from persistance.mongo import MongoMigrationHistory, MongoBackedMigration, copy_db as copy_mongo_db, drop as drop_mongo_db
+from .models import Migration
+from .mongo import drop as drop_mongo_db
+from .mongo import copy_db as copy_mongo_db
+from .mongo import MongoMigrationHistory, MongoBackedMigration
 
 MIGRATION_TEMPLATE = '''
 from monarch import {base_class}

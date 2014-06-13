@@ -3,4 +3,3 @@ nose
 jinja2
 click
 mongoengine
-sqlalchemy
