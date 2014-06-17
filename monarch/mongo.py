@@ -54,30 +54,30 @@ def temp_directory():
     shutil.rmtree(temp_dir)
 
 
+def dump_db(from_env, temp_dir):
+    options = {
+        '-h': "{}:{}".format(from_env['host'], str(from_env['port'])),
+        '-d': from_env['db_name'],
+        '-o': temp_dir
+    }
+    if 'username' in from_env:
+        options['-u'] = from_env['username']
+    if 'password' in from_env:
+        options['-p'] = from_env['password']
+    execution_array = ['mongodump']
+    for option in options:
+        execution_array.extend([option, options[option]])
+    echo("Executing: {}".format(execution_array))
+    result = subprocess.call(execution_array)
+    # mongorestore -h localhost --drop -d spotlight db/backups/spotlight-staging-1/
+    dump_path = "{}/{}".format(temp_dir, from_env['db_name'])
+    return dump_path
+
+
 def copy_db(from_env, to_env):
     with temp_directory() as temp_dir:
         #"mongodump -h dharma.mongohq.com:10067 -d spotlight-staging-1 -u spotlight -p V4Mld1ws4C5To0N -o db/backups/"
-        options = {
-            '-h': "{}:{}".format(from_env['host'], str(from_env['port'])),
-            '-d': from_env['db_name'],
-            '-o': temp_dir
-        }
-
-        if 'username' in from_env:
-            options['-u'] = from_env['username']
-
-        if 'password' in from_env:
-            options['-p'] = from_env['password']
-
-        execution_array = ['mongodump']
-        for option in options:
-            execution_array.extend([option, options[option]])
-
-        echo("Executing: {}".format(execution_array))
-        result = subprocess.call(execution_array)
-
-        # mongorestore -h localhost --drop -d spotlight db/backups/spotlight-staging-1/
-        dump_path = "{}/{}".format(temp_dir, from_env['db_name'])
+        dump_path = dump_db(from_env, temp_dir)
         restore(dump_path, to_env)
 
 

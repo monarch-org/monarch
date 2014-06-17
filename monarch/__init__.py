@@ -1,20 +1,22 @@
 # Core Imports
-from datetime import datetime
 import re
 import os
 import errno
 import inspect
-from importlib import import_module
-from glob import glob
 import collections
+from glob import glob
+from datetime import datetime
+from importlib import import_module
 
 # 3rd Party Imports
+import boto
 import click
 from click import echo
 
 import mongoengine
-from mongoengine.connection import _get_db
 
+
+# Local Imports
 from .models import Migration
 from .mongo import drop as drop_mongo_db
 from .mongo import copy_db as copy_mongo_db
@@ -52,6 +54,16 @@ ENVIRONMENTS = {
         'password': 'asdfdf'
     },
 }
+
+
+# If you want to use the backups feature uncomment and fill out the following:
+# BACKUPS = {
+#     'S3': {
+#         'bucket_name': 'your_bucket_name',
+#         'aws_access_key_id': 'aws_access_key_id',
+#         'aws_secret_access_key': 'aws_secret_access_key',
+#     }
+# }
 
 """
 
@@ -282,6 +294,41 @@ def find_migrations(config):
     # 2) Ensure that the are ordered
     ordered = collections.OrderedDict(sorted(migrations.items()))
     return ordered
+
+
+@cli.command()
+@click.argument('environment')
+@pass_config
+def backup_db(config, enviornment):
+    import os
+    import boto
+    import zipfile
+    from boto.s3.key import Key
+    from tempfile import mkdtemp, mkstemp
+    from .mongo import dump_db
+    # 1) dump db locally to temp file
+    temp_dir = mkdtemp()
+    dump_path = dump_db(enviornment, temp_dir)
+
+    # 2) compress file
+    def zipdir(path, zip):
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                zip.write(os.path.join(root, file))
+
+    zipf = zipfile.ZipFile('MongoDump.zip', 'w')
+    zipdir(dump_path, zipf)
+    zipf.close()
+
+    # 3) upload to s3
+    conn = boto.connect_s3(config.s3.aws_access_key_id, config.s3.aws_secret_access_key)
+    bucket = conn.get_bucket(config.s3.bucket_name)
+    k = Key(bucket)
+    k.key = zipf.filename
+    bytes_written = k.set_contents_from_filename(zipf.filename)
+
+    # 4) print out the name of the bucket
+    echo("Wrote {} btyes to s3".format(bytes_written))
 
 
 def camel_to_underscore(name):
