@@ -1,64 +1,101 @@
+.. -*-restructuredtext-*-
+
 monarch
 =======
-
-"migrations should happen naturally"
 
 |Build Status|
 
 .. |Build Status| image:: https://travis-ci.org/jtushman/monarch.svg?branch=master
-    :target: https://travis-ci.org/jtushman/monarch
+:target: https://travis-ci.org/jtushman/monarch
 
-*monarch* is a mongo utility belt that helps developers and admins deal with common admin usecases.  The main usecase
- that this library was built for was _migrations_ but it does a bunch or other useful things like makes it easy to
- backup, restore, and copy environments between one another.
+
+The Concept
+-----------
+
+"migrations should happen naturally"
+
+**monarch** is a mongo utility belt that helps developers and admins deal with common admin usecases.  The main usecase
+that this library was built for was _migrations_ but it does a bunch or other useful things like makes it easy to
+backup, restore, and copy environments between one another.
 
 It has been very helpful for our teams -- and hopefuly you guys can find it useful as well.
 
-Install
--------
+
+The Interface
+-------------
+
+``backup <env name>``
+    Backs ups a given database.  Currently it only supports backing up locally.  But S3 support is coming soon.
+    Make sure you have BACKUPS configured in your migrations/settings.py file
+    It will dump your database and compress it and give it a unquie name
+
+``restore  <backup_name>:<env_name>``
+    Restore a backup into the provided environment.  It will trucacte the database before the import
+
+``list_backups``
+    Lists the available backups
+
+``copy_db <from_env>:<to_env>``
+    Copies one database into another database
+
+    It will make an archive of the "From" database and then truncate the "To" database and restore that archive into the
+    "To" database
+
+    This is most useful for copying the production database locally to test migrations before doing it for reals
+
+``generate <migration_name>``
+    Generates a new migration template.  In this template you write the necessary code to perform your migration
+
+``list_migrations <env_name>``
+    Lists all of the migrations and there current status
+
+``migrate <env_name>``
+    Runs all pending migration on the given environment.  Normally you will use `copy_db` to move the production environment
+    locally and test the migrations locally first before doing on production
+
+``init``
+    Initializes monarch for your project
+
+
+
+The Installation
+----------------
 
 .. code:: bash
 
     pip install monarch
 
 
+The Configuration
+-----------------
+You need to configure **monarch** for each project.  Simply run ``monarch init`` in the root of your project.  Then
+go into `migrations.settins.py` to configure your environments and backups
+
+
 Migrations
 ----------
 
-What makes *monarch* unique is what it does not supply:
-
-- *monarch* does not provide a DSL or DDL for database specific migrations (like South and alembic)
+One of the core design principals behind **monarch** is that it does not provide a DSL or DDL for database
+specific migrations (like South and alembic)
 
 You write your migrations in pure python using whatever libraries you like.
 
-The main use-case that was the inspiration of this tool is adding a migration to a feature using CI
 
 When we develop a feature we implement the following:
 
-- the feature
-- tests
-- necessary migrations that move the production data to where it needs to be to rock the new feature
+- the **feature**
+- the **tests**
+- and the necessary **migrations** that move the production data to where it needs to be to rock the new feature
 
-So now with *monarch* we can implement a Pull Request(PR) with the feature, test and migration.
+So now with **monarch** we can implement a Pull Request(PR) with the feature, test and migration.
 And once your Continuous Integration says that your tests are cool then you can deploy and run
 the pending migrations needed for your feature.
 
 
-Usage
-~~~~~
+Example Use Case
+----------------
 
-0) Configure
-
-In your application working directory run:
-
-.. code:: bash
-
-    monarch init
-
-This will create a migration/settings.py file for you.  Open it up and configure it to your needs.
-
-
-1) Generate a Migration
+1) **Generate a Migration**
 
 .. code:: bash
 
@@ -81,120 +118,31 @@ That will create a template migration that looks something like this
             raise NotImplementedError
 
 
-2) Implement the Migration
+2) **Implement the Migration**
 
 Do whatever you want in that `run` method. I mean anything!  Go crazy wild man.
 
-3) When the time is right, run the pending migrations:
+3) **Test the Migration**
 
-.. code:: bash
+.. code:: base
 
-    monarch migrate
+    # copy the production db locally
+    monarch copy_db production:development
 
+    # check the status of the pending migraitons
+    monarch list_migrations development
 
-Configuration
--------------
+    # try running the migrations
+    monarch migrate development
 
-By default it will look in ./migrations/settings.py.
+    # everything cool?
+    monarch migrate production
 
-Most importantly you need to define the environments that you want to work with.  Typically you will have at least
-'produciton', and 'development' (aka local).
+    # not cool?
+    # fix your migration and try again
+    monarch copy_db production:development
 
-If you use the backup functionality you will also need to configure that
-
-It should look something like this:
-
-.. code:: python
-
-    # monarch settings file, generated by monarch init
-    # feal free to edit it with your application specific settings
-
-    ENVIRONMENTS = {
-        'production': {
-            'host': 'your-host',
-            'port': 12345,
-            'db_name': 'your-db-name',
-            'username': 'asdf',
-            'password': 'asdfdf'
-        },
-        'development': {
-            'host': 'your-host',
-            'port': 12345,
-            'db_name': 'your-db-name',
-            'username': 'asdf',
-            'password': 'asdfdf'
-        },
-    }
-
-
-    # If you want to use the backups feature uncomment and fill out the following:
-    # BACKUPS = {
-    #     'S3': {
-    #         'bucket_name': 'your_bucket_name',
-    #         'aws_access_key_id': 'aws_access_key_id',
-    #         'aws_secret_access_key': 'aws_secret_access_key',
-    #     }
-    # }
-
-    # OR
-
-    # BACKUPS = {
-    #     'LOCAL': {
-    #         'backup_dir': 'path_to_backups',
-    #     }
-    # }
-
-
-
-Toolbelt
---------
-
-backup / restore
-~~~~~~~~~~~~~~~~
-
-monarch backup <env name>
-#########################
-Backs ups a given database.  Currently it only supports backing up locally.  But S3 support is coming soon.
-
-Make sure you have BACKUPS configured in your migrations/settings.py file
-
-It will dump your database and compress it and give it a unquie name
-
-monarch restore  <backup_name>:<env_name>
-#########################################
-Restore a backup into the provided environment.  It will trucacte the database before the import
-
-monarch list_backups
-####################
-Lists the available backups
-
-monarch copy_db <from_env>:<to_env>
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Copies one database into another database
-
-It will make an archive of the "From" database and then truncate the "To" database and restore that archive into the
-"To" database
-
-This is most useful for copying the production database locally to test migrations before doing it for reals
-
-
-Migrations
-----------
-
-monarch generate <migration_name>
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Generates a new migration template.  In this template you write the necessary code to perform your migration
-
-
-monarch list_migrations <env_name>
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Lists all of the migrations and there current status
-
-
-monarch migrate <env_name>
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-Runs all pending migration on the given environment.  Normally you will use `copy_db` to move the production environment
-locally and test the migrations locally first before doing on production
+    # and so on ....
 
 
 RoadMap
