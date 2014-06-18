@@ -87,7 +87,7 @@ UNDER_PAT = re.compile(r'_([a-z])')
 class Config(object):
 
     def __init__(self):
-        self.migration_directory = None
+        self.migration_directory = './migrations'
         self.config_directory = None
 
     def configure_from_settings_file(self):

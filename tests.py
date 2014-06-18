@@ -217,7 +217,10 @@ def test_failed_migration():
     runner = CliRunner()
     with isolated_filesystem_with_path() as cwd:
         initialize_monarch(cwd)
-        runner.invoke(cli, ['generate', 'add_account_table'])
+        result = runner.invoke(cli, ['generate', 'add_account_table'])
+        echo('output: {}'.format(result.output))
+        echo('exception: {}'.format(result.exception))
+
 
         # Update Migration Template with a *proper* migration
         current_migration = first_migration(cwd)
@@ -272,7 +275,7 @@ def test_list_migrations():
 
         ensure_current_migrations_module_is_loaded()
 
-        result = runner.invoke(cli, ['list', 'test'])
+        result = runner.invoke(cli, ['list_migrations', 'test'])
 
         assert result.exit_code == 0
 
