@@ -13,7 +13,6 @@ import nose
 import boto
 import mongoengine
 from click import echo
-from moto import mock_s3
 from pymongo import MongoClient
 from nose.tools import with_setup
 from click.testing import CliRunner
@@ -43,10 +42,8 @@ TEST_ENVIRONEMNTS = {
 }
 
 BACKUPS = {
-    'S3': {
-        'bucket_name': 'monarch-test-bucket',
-        'aws_access_key_id': 'aws_access_key_id',
-        'aws_secret_access_key': 'aws_secret_access_key',
+    'LOCAL': {
+        'backup_dir': 'path_to_backups',
     },
 }
 
@@ -125,12 +122,15 @@ def clear_mongo_databases():
         client.drop_database(env['db_name'])
 
 
-def initialize_monarch(working_dir):
+def initialize_monarch(working_dir, backup_dir=None):
     migration_path = os.path.join(os.path.abspath(working_dir), 'migrations')
     create_migration_directory_if_necessary(migration_path)
     settings_file = os.path.join(os.path.abspath(working_dir), 'migrations/settings.py')
     with open(settings_file, 'w') as f:
-        f.write(TEST_CONFIG)
+        if backup_dir:
+            f.write(TEST_CONFIG.replace('path_to_backups', backup_dir))
+        else:
+            f.write(TEST_CONFIG)
 
     m = import_module('migrations')
     reload(m)
@@ -185,7 +185,6 @@ def establish_connection(env_name):
 
 
 def get_db(env):
-    import pdb; pdb.set_trace()
     client = MongoClient(host=env['host'], port=env['port'])
     return client[env['db_name']]
 
@@ -235,15 +234,10 @@ def test_failed_migration():
 
 
 def populate_database(env_name):
-    echo('a')
-    import pdb; pdb.set_trace()
     from_db = get_db(TEST_ENVIRONEMNTS[env_name])
-    echo('b')
     from_fishes = from_db.fishes
-    echo('c')
     fish = {'name': "Red Fish"}
     from_fishes.insert(fish)
-    echo('d')
     assert from_fishes.count() == 1
 
 
@@ -283,32 +277,39 @@ def test_list_migrations():
         assert result.exit_code == 0
 
 
-@mock_s3
 @requires_mongoengine
 @with_setup(no_op, clear_mongo_databases)
 def test_backup_database():
     runner = CliRunner()
-    echo(0)
     with isolated_filesystem_with_path() as working_dir:
-        echo(1)
-        initialize_monarch(working_dir)
-        echo(2)
+        backup_dir = os.path.join(working_dir, 'backups')
+        os.mkdir(backup_dir)
+
+        initialize_monarch(working_dir, backup_dir=backup_dir)
         populate_database('from_test')
-        echo(3)
-        result = runner.invoke(cli, ['backup', 'from_db'])
-        echo('output: {}'.format(result.output))
-        echo('exception: {}'.format(result.exception))
+        import_module('migrations.settings')
+
+        result = runner.invoke(cli, ['backup', 'from_test'])
 
         assert result.exit_code == 0
+        assert len([name for name in os.listdir(backup_dir)]) == 1
 
-        s = import_module('migrations.settings')
-        conn = boto.connect_s3(s.BACKUPS['S3']['aws_access_key_id'], s.BACKUPS['S3']['aws_secret_access_key'])
-        bucket = conn.get_bucket(s.BACKUPS['S3']['bucket_name'])
+@requires_mongoengine
+@with_setup(no_op, clear_mongo_databases)
+def test_list_backups():
+    runner = CliRunner()
+    with isolated_filesystem_with_path() as working_dir:
+        backup_dir = os.path.join(working_dir, 'backups')
+        os.mkdir(backup_dir)
 
-        assert len(bucket.list()) == 1
+        initialize_monarch(working_dir, backup_dir=backup_dir)
+        populate_database('from_test')
+        import_module('migrations.settings')
 
+        result = runner.invoke(cli, ['list_backups'])
 
-
+        echo('output: {}'.format(result.output))
+        echo('exception: {}'.format(result.exception))
 
 
 

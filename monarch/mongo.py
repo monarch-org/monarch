@@ -55,6 +55,9 @@ def temp_directory():
 
 
 def dump_db(from_env, temp_dir):
+
+    echo("env: {}".format(from_env))
+
     options = {
         '-h': "{}:{}".format(from_env['host'], str(from_env['port'])),
         '-d': from_env['db_name'],
@@ -64,6 +67,7 @@ def dump_db(from_env, temp_dir):
         options['-u'] = from_env['username']
     if 'password' in from_env:
         options['-p'] = from_env['password']
+
     execution_array = ['mongodump']
     for option in options:
         execution_array.extend([option, options[option]])

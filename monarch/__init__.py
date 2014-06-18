@@ -2,14 +2,18 @@
 import re
 import os
 import errno
+import shutil
 import inspect
+import zipfile
+import contextlib
 import collections
 from glob import glob
+from tempfile import mkdtemp
 from datetime import datetime
 from importlib import import_module
+from contextlib import contextmanager
 
 # 3rd Party Imports
-import boto
 import click
 from click import echo
 
@@ -21,6 +25,8 @@ from .models import Migration
 from .mongo import drop as drop_mongo_db
 from .mongo import copy_db as copy_mongo_db
 from .mongo import MongoMigrationHistory, MongoBackedMigration
+from .mongo import dump_db, restore as restore_mongo_db
+
 
 MIGRATION_TEMPLATE = '''
 from monarch import {base_class}
@@ -65,6 +71,15 @@ ENVIRONMENTS = {
 #     }
 # }
 
+# OR
+
+# BACKUPS = {
+#     'LOCAL': {
+#         'backup_dir': 'path_to_backups',
+#     }
+# }
+
+
 """
 
 CAMEL_PAT = re.compile(r'([A-Z])')
@@ -81,12 +96,12 @@ class Config(object):
         settings = import_module('migrations.settings')
 
         if not hasattr(settings, 'ENVIRONMENTS'):
-            echo()
-            echo('Configuration file should have a ENVIRONMENTS method set')
-            echo()
-            exit()
+            exit_with_message('Configuration file should have a ENVIRONMENTS method set')
         else:
             self.environments = settings.ENVIRONMENTS
+
+        if hasattr(settings, 'BACKUPS'):
+            self.backups = settings.BACKUPS
 
 
 def establish_datastore_connection(environment):
@@ -154,10 +169,7 @@ def lizt(config, environment):
 
     """
     if environment not in config.environments:
-        echo()
-        echo("Environment not described in settings.py")
-        echo()
-        exit()
+        exit_with_message("Environment not described in settings.py")
 
     migrations_on_file_system = find_migrations(config)
 
@@ -186,10 +198,7 @@ def migrate(config, environment):
     :return:
     """
     if environment not in config.environments:
-        echo()
-        echo("Environment not described in settings.py")
-        echo()
-        exit()
+        exit_with_message("Environment not described in settings.py")
 
     # 1) Find all migrations in the migrations/ directory
     # key = name, value = MigrationClass
@@ -247,22 +256,18 @@ def copy_db(config, from_to):
 
     """
     if ':' not in from_to:
-        echo("Expecting from:to syntax like production:local")
-        exit()
+        exit_with_message("Expecting from:to syntax like production:local")
 
     from_db, to_db = from_to.split(':')
 
     if config.environments is None:
-        echo('Configuration file should have a ENVIRONMENTS set')
-        exit()
+        exit_with_message('Configuration file should have a ENVIRONMENTS set')
 
     if from_db not in config.environments:
-        echo('Environemnts does not have a specification for {}'.format(from_db))
-        exit()
+        exit_with_message('Environemnts does not have a specification for {}'.format(from_db))
 
     if to_db not in config.environments:
-        echo('Environemnts does not have a specification for {}'.format(to_db))
-        exit()
+        exit_with_message('Environemnts does not have a specification for {}'.format(to_db))
 
     if click.confirm('Are you SURE you want to copy data from {} into {}?'.format(from_db, to_db)):
         echo()
@@ -296,10 +301,76 @@ def find_migrations(config):
     return ordered
 
 
+def exit_with_message(message):
+    echo()
+    echo(message)
+    echo()
+    exit()
+
+
+def confirm_environment(config, environment):
+    if environment not in config.environments:
+        exit_with_message("{} is not in settings.  Exiting ...".format(environment))
+
 @cli.command()
 @click.argument('environment')
 @pass_config
-def backup_db(config, enviornment):
+def backup(config, environment):
+    """ Backs up a given datastore
+        It is configured in the BACKUPS section of settings
+        You can back up locally or to S3
+    """
+
+    if not hasattr(config, 'backups'):
+        exit_with_message('BACKUPS not configured, exiting')
+
+    confirm_environment(config, environment)
+
+    if 'LOCAL' in config.backups:
+        backup_localy(config, environment, config.backups['LOCAL'])
+    elif 'S3' in config.backups:
+        backup_to_s3(config, environment, config.backups['S3'])
+    else:
+        exit_with_message('BACKUPS not configured, exiting')
+
+
+def list_local_backups(local_config):
+
+    _local_backups = local_backups(local_config)
+    for backup in _local_backups:
+        echo("{:50} {}".format(backup, sizeof_fmt(os.path.getsize(_local_backups[backup]))))
+
+
+def list_s3_backups(s3_settings):
+    pass
+
+
+def sizeof_fmt(num):
+    for x in ['bytes','KB','MB','GB','TB']:
+        if num < 1024.0:
+            return "%3.1f %s" % (num, x)
+        num /= 1024.0
+
+
+@cli.command()
+@pass_config
+def list_backups(config):
+    """ Lists available backups
+    """
+    if config.backups is None:
+        exit_with_message('BACKUPS not configured, exiting')
+
+    if 'LOCAL' in config.backups:
+        list_local_backups(config.backups['LOCAL'])
+    elif 'S3' in config.backups:
+        list_s3_backups(config.backups['S3'])
+    else:
+        exit_with_message('BACKUPS not configured, exiting')
+
+
+
+def backup_to_s3(config, environment, s3_settings):
+    raise NotImplementedError
     import os
     import boto
     import zipfile
@@ -309,6 +380,8 @@ def backup_db(config, enviornment):
     # 1) dump db locally to temp file
     temp_dir = mkdtemp()
     dump_path = dump_db(enviornment, temp_dir)
+
+    echo("Zipping File")
 
     # 2) compress file
     def zipdir(path, zip):
@@ -320,6 +393,8 @@ def backup_db(config, enviornment):
     zipdir(dump_path, zipf)
     zipf.close()
 
+    echo("Zipping File")
+
     # 3) upload to s3
     conn = boto.connect_s3(config.s3.aws_access_key_id, config.s3.aws_secret_access_key)
     bucket = conn.get_bucket(config.s3.bucket_name)
@@ -329,6 +404,167 @@ def backup_db(config, enviornment):
 
     # 4) print out the name of the bucket
     echo("Wrote {} btyes to s3".format(bytes_written))
+
+
+def backup_localy(config, env_name, local_settings):
+
+    if 'backup_dir' not in local_settings:
+        exit_with_message('Local Settings not configured correctly, expecting "backup_dir"')
+
+    backup_dir = local_settings['backup_dir']
+
+    if not os.path.isdir(backup_dir):
+        exit_with_message('Directory [{}] does not exist.  Exiting ...'.format(backup_dir))
+
+    # 1) dump db locally to temp file
+    temp_dir = mkdtemp()
+
+    echo("envs {}".format(config.environments))
+
+    dump_path = dump_db(config.environments[env_name], temp_dir)
+    echo("Zipping File")
+
+    # 2) compress file
+    def zipdir(path, zip):
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                zip.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), root))
+
+    zipf = zipfile.ZipFile('MongoDump.zip', 'w')
+    zipdir(dump_path, zipf)
+    zipf.close()
+
+    echo("Moving {} file into: {}".format(zipf.filename, backup_dir))
+
+    unique_file_path = generate_unique_name(backup_dir, config.environments[env_name])
+
+    shutil.move(zipf.filename, unique_file_path)
+
+
+@cli.command()
+@click.argument('from_to')
+@pass_config
+def restore(config, from_to):
+    """ Restores a backup into a destination database.  Provide a dump name that you can get from
+
+        monarch list_backups
+
+        Example
+
+        monarch restore adid-development__2014_06_18.dmp.zip:development
+
+    """
+    if ':' not in from_to:
+        exit_with_message("Expecting from:to syntax like production:local")
+
+    backup, to_db = from_to.split(':')
+
+    if config.environments is None:
+        exit_with_message('Configuration file should have a ENVIRONMENTS set')
+
+    if to_db not in config.environments:
+        exit_with_message('Environemnts does not have a specification for {}'.format(to_db))
+
+    if backup not in backups(config):
+        exit_with_message('Can not find backup {}, run monarch list_backups to see your options'.format(backup))
+
+    if click.confirm('Are you SURE you want to retore backup into into {}? It will delete the database first'.format(to_db)):
+        echo()
+        echo("Okay, you asked for it ...")
+        echo()
+        restore_db(backups(config)[backup], config.environments[to_db])
+
+
+@contextmanager
+def temp_directory():
+    temp_dir = mkdtemp()
+    yield temp_dir
+    shutil.rmtree(temp_dir)
+
+def restore_db(zip_path, to_environment):
+    """unzips the file then runs a restore"""
+    zip = zipfile.ZipFile(zip_path)
+    with temp_directory() as temp_dir:
+        zip.extractall(path=temp_dir)
+        restore_mongo_db(temp_dir, to_environment)
+
+    echo()
+    echo("Rock and roll that seemed to go well -- Nice work")
+    echo()
+
+
+
+
+
+
+
+def backups(config):
+    """returns a dictionary of {backup_name: backup_path}"""
+    if config.backups is None:
+        exit_with_message('BACKUPS not configured, exiting')
+
+    if 'LOCAL' in config.backups:
+        return local_backups(config.backups['LOCAL'])
+    elif 'S3' in config.backups:
+        return s3_backups(config.backups['S3'])
+    else:
+        exit_with_message('BACKUPS not configured, exiting')
+
+def local_backups(local_config):
+    if 'backup_dir' not in local_config:
+        exit_with_message('Local Settings not configured correctly, expecting "backup_dir"')
+
+    backup_dir = local_config['backup_dir']
+
+    if not os.path.isdir(backup_dir):
+        exit_with_message('Directory [{}] does not exist.  Exiting ...'.format(backup_dir))
+
+    backups = {}
+    for item in os.listdir(backup_dir):
+        backups[item] = os.path.join(backup_dir, item)
+
+    return backups
+
+
+
+def s3_backups(s3_config):
+    raise NotImplementedError
+
+
+
+
+
+def generate_unique_name(backup_dir, environemnt):
+    # generate_file_name
+    # database_name__2013_03_01.dmp.zip
+    # or if that exists
+    # database_name__2013_03_01(2).dmp.zip
+    from datetime import datetime
+    name_attempt = "{}__{}.dmp.zip".format(environemnt['db_name'], datetime.utcnow().strftime("%Y_%m_%d"))
+
+    # check if file exists
+    name_attemp_full_path = os.path.join(backup_dir, name_attempt)
+
+    if not os.path.exists(name_attemp_full_path):
+        return name_attemp_full_path
+    else:
+        counter = 1
+        while True:
+            counter += 1
+            name_attempt = "{}__{}_{}.dmp.zip".format(environemnt['db_name'], datetime.utcnow().strftime("%Y_%m_%d"), counter)
+            name_attempt_full_path = os.path.join(backup_dir, name_attempt)
+            if os.path.exists(name_attempt_full_path):
+                continue
+            else:
+                return name_attempt_full_path
+
+
+
+
+
+
+
+
 
 
 def camel_to_underscore(name):
