@@ -152,3 +152,4 @@ RoadMap
 -------
 * S3 backup support
 * Support for PostgreSQL and the like
+* Use only pymongo (not mongoengine)

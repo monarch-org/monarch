@@ -10,7 +10,6 @@ from importlib import import_module
 
 # 3rd Party
 import nose
-import boto
 import mongoengine
 from click import echo
 from pymongo import MongoClient

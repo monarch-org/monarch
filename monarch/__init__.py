@@ -364,39 +364,39 @@ def list_backups(config):
 
 def backup_to_s3(config, environment, s3_settings):
     raise NotImplementedError
-    import os
-    import boto
-    import zipfile
-    from boto.s3.key import Key
-    from tempfile import mkdtemp, mkstemp
-    from .mongo import dump_db
-    # 1) dump db locally to temp file
-    temp_dir = mkdtemp()
-    dump_path = dump_db(enviornment, temp_dir)
-
-    echo("Zipping File")
-
-    # 2) compress file
-    def zipdir(path, zip):
-        for root, dirs, files in os.walk(path):
-            for file in files:
-                zip.write(os.path.join(root, file))
-
-    zipf = zipfile.ZipFile('MongoDump.zip', 'w')
-    zipdir(dump_path, zipf)
-    zipf.close()
-
-    echo("Zipping File")
-
-    # 3) upload to s3
-    conn = boto.connect_s3(config.s3.aws_access_key_id, config.s3.aws_secret_access_key)
-    bucket = conn.get_bucket(config.s3.bucket_name)
-    k = Key(bucket)
-    k.key = zipf.filename
-    bytes_written = k.set_contents_from_filename(zipf.filename)
-
-    # 4) print out the name of the bucket
-    echo("Wrote {} btyes to s3".format(bytes_written))
+    # import os
+    # import boto
+    # import zipfile
+    # from boto.s3.key import Key
+    # from tempfile import mkdtemp, mkstemp
+    # from .mongo import dump_db
+    # # 1) dump db locally to temp file
+    # temp_dir = mkdtemp()
+    # dump_path = dump_db(enviornment, temp_dir)
+    #
+    # echo("Zipping File")
+    #
+    # # 2) compress file
+    # def zipdir(path, zip):
+    #     for root, dirs, files in os.walk(path):
+    #         for file in files:
+    #             zip.write(os.path.join(root, file))
+    #
+    # zipf = zipfile.ZipFile('MongoDump.zip', 'w')
+    # zipdir(dump_path, zipf)
+    # zipf.close()
+    #
+    # echo("Zipping File")
+    #
+    # # 3) upload to s3
+    # conn = boto.connect_s3(config.s3.aws_access_key_id, config.s3.aws_secret_access_key)
+    # bucket = conn.get_bucket(config.s3.bucket_name)
+    # k = Key(bucket)
+    # k.key = zipf.filename
+    # bytes_written = k.set_contents_from_filename(zipf.filename)
+    #
+    # # 4) print out the name of the bucket
+    # echo("Wrote {} btyes to s3".format(bytes_written))
 
 
 def backup_localy(config, env_name, local_settings):
