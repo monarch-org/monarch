@@ -8,29 +8,6 @@ monarch
 .. |Build Status| image:: https://travis-ci.org/jtushman/monarch.svg?branch=master
     :target: https://travis-ci.org/jtushman/monarch
 
-
-::
-                `         '
-;,,,             `       '             ,,,;
-`Y888888bo.       :     :       .od888888Y'
-  8888888888b.     :   :     .d8888888888
-  88888Y'  `Y8b.   `   '   .d8Y'  `Y88888
- j88888  .db.  Yb. '   ' .dY  .db.  88888k
-   `888  Y88Y    `b ( ) d'    Y88Y  888'
-    888b  '"        ,',        "'  d888
-   j888888bd8gf"'   ':'   `"?g8bd888888k
-     'Y'   .8'     d' 'b     '8.   'Y'
-      !   .8' db  d'; ;`b  db '8.   !
-         d88  `'  8 ; ; 8  `'  88b
-        d888b   .g8 ',' 8g.   d888b
-        888888888Y'     'Y888888888
-       '! 8888888'       `8888888 !'
-          '8Y  `Y         Y'  Y8'
-           Y                   Y
-           !                   !
-
-
-
 *monarch* is a mongo utility belt that helps developers and admins deal with common admin usecases.  The main usecase
  that this library was built for was _migrations_ but it does a bunch or other useful things like makes it easy to
  backup, restore, and copy environments between one another.
