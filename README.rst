@@ -6,7 +6,7 @@ monarch
 |Build Status|
 
 .. |Build Status| image:: https://travis-ci.org/jtushman/monarch.svg?branch=master
-:target: https://travis-ci.org/jtushman/monarch
+    :target: https://travis-ci.org/jtushman/monarch
 
 
 The Concept
@@ -23,6 +23,16 @@ It has been very helpful for our teams -- and hopefuly you guys can find it usef
 
 The Interface
 -------------
+
+``generate <migration_name>``
+    Generates a new migration template.  In this template you write the necessary code to perform your migration
+
+``list_migrations <env_name>``
+    Lists all of the migrations and there current status
+
+``migrate <env_name>``
+    Runs all pending migration on the given environment.  Normally you will use `copy_db` to move the production environment
+    locally and test the migrations locally first before doing on production
 
 ``backup <env name>``
     Backs ups a given database.  Currently it only supports backing up locally.  But S3 support is coming soon.
@@ -43,16 +53,6 @@ The Interface
 
     This is most useful for copying the production database locally to test migrations before doing it for reals
 
-``generate <migration_name>``
-    Generates a new migration template.  In this template you write the necessary code to perform your migration
-
-``list_migrations <env_name>``
-    Lists all of the migrations and there current status
-
-``migrate <env_name>``
-    Runs all pending migration on the given environment.  Normally you will use `copy_db` to move the production environment
-    locally and test the migrations locally first before doing on production
-
 ``init``
     Initializes monarch for your project
 
@@ -66,10 +66,8 @@ The Installation
     pip install monarch
 
 
-The Configuration
------------------
 You need to configure **monarch** for each project.  Simply run ``monarch init`` in the root of your project.  Then
-go into `migrations.settins.py` to configure your environments and backups
+go into `migrations.settings.py` to configure your environments and backups
 
 
 Migrations
@@ -136,6 +134,11 @@ Do whatever you want in that `run` method. I mean anything!  Go crazy wild man.
     monarch migrate development
 
     # everything cool?
+
+    # just to be sure -- lets make a backup
+    monarch backup production
+
+    # time to rock
     monarch migrate production
 
     # not cool?
@@ -147,4 +150,5 @@ Do whatever you want in that `run` method. I mean anything!  Go crazy wild man.
 
 RoadMap
 -------
-* Support for PostGres and the like
+* S3 backup support
+* Support for PostgreSQL and the like
