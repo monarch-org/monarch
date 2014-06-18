@@ -5,7 +5,6 @@ import errno
 import shutil
 import inspect
 import zipfile
-import contextlib
 import collections
 from glob import glob
 from tempfile import mkdtemp
@@ -18,7 +17,6 @@ import click
 from click import echo
 
 import mongoengine
-
 
 # Local Imports
 from .models import Migration
@@ -114,26 +112,15 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 
 
 @click.group()
-@click.option('--migration-directory', '-m',
-              type=click.Path(), help='Where migration files will be stored and looked for')
-@click.option('--config-directory', '-c', type=click.Path(), help='Point to the configuration file to use')
 @pass_config
 @click.pass_context
-def cli(ctx, config, migration_directory, config_directory):
+def cli(ctx, config):
     """ Your friendly migration manager
 
         To get help on a specific function you may append --help to the function
         i.e.
         monarch generate --help
     """
-    if migration_directory is None:
-        migration_directory = './migrations'
-    config.migration_directory = migration_directory
-
-    if config_directory is None:
-        config_directory = os.path.join(config.migration_directory, 'settings.py')
-    config.config_directory = config_directory
-
     if ctx.invoked_subcommand != 'init':
         config.configure_from_settings_file()
 
@@ -161,7 +148,7 @@ def generate(config, name):
     click.echo("Generated Migration Template: [{}]".format(migration_name))
 
 
-@cli.command(name='list')
+@cli.command(name='list_migrations')
 @click.argument('environment')
 @pass_config
 def lizt(config, environment):
@@ -215,15 +202,21 @@ def migrate(config, environment):
 
 
 @cli.command()
+@click.option('--migration-directory', default='./migrations', help='path to where you want to store your migrations')
 @pass_config
-def init(config):
+def init(config, migration_directory):
     """ Generates a default setting file.
 
         It will it in ./migrations and will create the package if it does not exist
 
     """
+
     create_migration_directory_if_necessary(config.migration_directory)
     settings_file = os.path.join(os.path.abspath(config.migration_directory), 'settings.py')
+
+    if os.path.exists(settings_file):
+        click.confirm("A settings file already exists.  Are you sure you want to overwrite it?", abort=True)
+
     with open(settings_file, 'w') as f:
         f.write(CONFIG_TEMPLATE)
 
@@ -526,12 +519,8 @@ def local_backups(local_config):
     return backups
 
 
-
 def s3_backups(s3_config):
     raise NotImplementedError
-
-
-
 
 
 def generate_unique_name(backup_dir, environemnt):
@@ -557,14 +546,6 @@ def generate_unique_name(backup_dir, environemnt):
                 continue
             else:
                 return name_attempt_full_path
-
-
-
-
-
-
-
-
 
 
 def camel_to_underscore(name):
