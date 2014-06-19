@@ -1,12 +1,16 @@
 import click
-import shutil
 import subprocess
 import mongoengine
 from click import echo
-from tempfile import mkdtemp
-from contextlib import contextmanager
 
-from monarch.models import Migration, MigrationHistoryStorage
+from .utils import temp_directory
+from .models import Migration, MigrationHistoryStorage
+
+
+def establish_datastore_connection(environment):
+    mongo_name = environment['db_name']
+    mongo_port = int(environment['port'])
+    mongoengine.connect(mongo_name, port=mongo_port)
 
 
 class MongoMigrationHistory(MigrationHistoryStorage, mongoengine.Document):
@@ -44,13 +48,6 @@ class MongoBackedMigration(Migration):
     def status(self):
         migration_meta = MongoMigrationHistory.find_or_create_by_key(self.migration_key)
         return migration_meta.state
-
-
-@contextmanager
-def temp_directory():
-    temp_dir = mkdtemp()
-    yield temp_dir
-    shutil.rmtree(temp_dir)
 
 
 def dump_db(from_env, temp_dir):

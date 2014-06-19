@@ -10,20 +10,19 @@ from glob import glob
 from tempfile import mkdtemp
 from datetime import datetime
 from importlib import import_module
-from contextlib import contextmanager
 
 # 3rd Party Imports
 import click
 from click import echo
 
-import mongoengine
-
 # Local Imports
 from .models import Migration
+from .utils import temp_directory, camel_to_underscore, underscore_to_camel, sizeof_fmt
 from .mongo import drop as drop_mongo_db
 from .mongo import copy_db as copy_mongo_db
 from .mongo import MongoMigrationHistory, MongoBackedMigration
 from .mongo import dump_db, restore as restore_mongo_db
+from .mongo import establish_datastore_connection
 
 
 MIGRATION_TEMPLATE = '''
@@ -80,9 +79,6 @@ ENVIRONMENTS = {
 
 """
 
-CAMEL_PAT = re.compile(r'([A-Z])')
-UNDER_PAT = re.compile(r'_([a-z])')
-
 
 class Config(object):
 
@@ -100,12 +96,6 @@ class Config(object):
 
         if hasattr(settings, 'BACKUPS'):
             self.backups = settings.BACKUPS
-
-
-def establish_datastore_connection(environment):
-    mongo_name = environment['db_name']
-    mongo_port = int(environment['port'])
-    mongoengine.connect(mongo_name, port=mongo_port)
 
 
 pass_config = click.make_pass_decorator(Config, ensure=True)
@@ -229,12 +219,6 @@ def init(migration_directory):
     echo(msg)
 
 
-# @cli.command()
-# @pass_config
-# def initialize_sql_database():
-#     engine = sqlalchemy.create_engine('sqlite:///:memory:', echo=False)
-
-
 @cli.command()
 @click.argument('from_to')
 @pass_config
@@ -277,6 +261,79 @@ def drop_db(config, environment):
     drop_mongo_db(config.environments[environment])
 
 
+@cli.command()
+@click.argument('environment')
+@pass_config
+def backup(config, environment):
+    """ Backs up a given datastore
+        It is configured in the BACKUPS section of settings
+        You can back up locally or to S3
+    """
+
+    if not hasattr(config, 'backups'):
+        exit_with_message('BACKUPS not configured, exiting')
+
+    confirm_environment(config, environment)
+
+    if 'LOCAL' in config.backups:
+        backup_localy(config, environment, config.backups['LOCAL'])
+    elif 'S3' in config.backups:
+        backup_to_s3(config, environment, config.backups['S3'])
+    else:
+        exit_with_message('BACKUPS not configured, exiting')
+
+
+@cli.command()
+@pass_config
+def list_backups(config):
+    """ Lists available backups
+    """
+    if config.backups is None:
+        exit_with_message('BACKUPS not configured, exiting')
+
+    if 'LOCAL' in config.backups:
+        list_local_backups(config.backups['LOCAL'])
+    elif 'S3' in config.backups:
+        list_s3_backups(config.backups['S3'])
+    else:
+        exit_with_message('BACKUPS not configured, exiting')
+
+
+@cli.command()
+@click.argument('from_to')
+@pass_config
+def restore(config, from_to):
+    """ Restores a backup into a destination database.  Provide a dump name that you can get from
+
+        monarch list_backups
+
+        Example
+
+        monarch restore adid-development__2014_06_18.dmp.zip:development
+
+    """
+    if ':' not in from_to:
+        exit_with_message("Expecting from:to syntax like production:local")
+
+    backup, to_db = from_to.split(':')
+
+    if config.environments is None:
+        exit_with_message('Configuration file should have a ENVIRONMENTS set')
+
+    if to_db not in config.environments:
+        exit_with_message('Environemnts does not have a specification for {}'.format(to_db))
+
+    if backup not in backups(config):
+        exit_with_message('Can not find backup {}, run monarch list_backups to see your options'.format(backup))
+
+    msg = 'Are you SURE you want to retore backup into into {}? It will delete the database first'.format(to_db)
+    if click.confirm(msg):
+        echo()
+        echo("Okay, you asked for it ...")
+        echo()
+        restore_db(backups(config)[backup], config.environments[to_db])
+
+
 def find_migrations(config):
     migrations = {}
     click.echo("fm 1 cwd: {}".format(os.getcwd()))
@@ -305,28 +362,6 @@ def confirm_environment(config, environment):
         exit_with_message("{} is not in settings.  Exiting ...".format(environment))
 
 
-@cli.command()
-@click.argument('environment')
-@pass_config
-def backup(config, environment):
-    """ Backs up a given datastore
-        It is configured in the BACKUPS section of settings
-        You can back up locally or to S3
-    """
-
-    if not hasattr(config, 'backups'):
-        exit_with_message('BACKUPS not configured, exiting')
-
-    confirm_environment(config, environment)
-
-    if 'LOCAL' in config.backups:
-        backup_localy(config, environment, config.backups['LOCAL'])
-    elif 'S3' in config.backups:
-        backup_to_s3(config, environment, config.backups['S3'])
-    else:
-        exit_with_message('BACKUPS not configured, exiting')
-
-
 def list_local_backups(local_config):
 
     _local_backups = local_backups(local_config)
@@ -336,29 +371,6 @@ def list_local_backups(local_config):
 
 def list_s3_backups(s3_settings):
     pass
-
-
-def sizeof_fmt(num):
-    for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
-        if num < 1024.0:
-            return "%3.1f %s" % (num, x)
-        num /= 1024.0
-
-
-@cli.command()
-@pass_config
-def list_backups(config):
-    """ Lists available backups
-    """
-    if config.backups is None:
-        exit_with_message('BACKUPS not configured, exiting')
-
-    if 'LOCAL' in config.backups:
-        list_local_backups(config.backups['LOCAL'])
-    elif 'S3' in config.backups:
-        list_s3_backups(config.backups['S3'])
-    else:
-        exit_with_message('BACKUPS not configured, exiting')
 
 
 def backup_to_s3(config, environment, s3_settings):
@@ -433,48 +445,6 @@ def backup_localy(config, env_name, local_settings):
     shutil.move(zipf.filename, unique_file_path)
 
 
-@cli.command()
-@click.argument('from_to')
-@pass_config
-def restore(config, from_to):
-    """ Restores a backup into a destination database.  Provide a dump name that you can get from
-
-        monarch list_backups
-
-        Example
-
-        monarch restore adid-development__2014_06_18.dmp.zip:development
-
-    """
-    if ':' not in from_to:
-        exit_with_message("Expecting from:to syntax like production:local")
-
-    backup, to_db = from_to.split(':')
-
-    if config.environments is None:
-        exit_with_message('Configuration file should have a ENVIRONMENTS set')
-
-    if to_db not in config.environments:
-        exit_with_message('Environemnts does not have a specification for {}'.format(to_db))
-
-    if backup not in backups(config):
-        exit_with_message('Can not find backup {}, run monarch list_backups to see your options'.format(backup))
-
-    msg = 'Are you SURE you want to retore backup into into {}? It will delete the database first'.format(to_db)
-    if click.confirm(msg):
-        echo()
-        echo("Okay, you asked for it ...")
-        echo()
-        restore_db(backups(config)[backup], config.environments[to_db])
-
-
-@contextmanager
-def temp_directory():
-    temp_dir = mkdtemp()
-    yield temp_dir
-    shutil.rmtree(temp_dir)
-
-
 def restore_db(zip_path, to_environment):
     """unzips the file then runs a restore"""
     zip = zipfile.ZipFile(zip_path)
@@ -544,14 +514,6 @@ def generate_unique_name(backup_dir, environemnt):
                 continue
             else:
                 return name_attempt_full_path
-
-
-def camel_to_underscore(name):
-    return CAMEL_PAT.sub(lambda x: '_' + x.group(1).lower(), name)
-
-
-def underscore_to_camel(name):
-    return UNDER_PAT.sub(lambda x: x.group(1).upper(), name.capitalize())
 
 
 def generate_migration_name(folder, name):
