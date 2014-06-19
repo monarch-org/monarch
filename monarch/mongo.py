@@ -8,6 +8,7 @@ from contextlib import contextmanager
 
 from monarch.models import Migration, MigrationHistoryStorage
 
+
 class MongoMigrationHistory(MigrationHistoryStorage, mongoengine.Document):
     """
     Mongo Table to keep track of the status of migrations
@@ -27,8 +28,6 @@ class MongoMigrationHistory(MigrationHistoryStorage, mongoengine.Document):
             return results[0]
         else:
             return None
-
-
 
     @classmethod
     def all(cls):
@@ -72,7 +71,8 @@ def dump_db(from_env, temp_dir):
     for option in options:
         execution_array.extend([option, options[option]])
     echo("Executing: {}".format(execution_array))
-    result = subprocess.call(execution_array)
+    subprocess.call(execution_array)
+
     # mongorestore -h localhost --drop -d spotlight db/backups/spotlight-staging-1/
     dump_path = "{}/{}".format(temp_dir, from_env['db_name'])
     return dump_path
@@ -80,7 +80,7 @@ def dump_db(from_env, temp_dir):
 
 def copy_db(from_env, to_env):
     with temp_directory() as temp_dir:
-        #"mongodump -h dharma.mongohq.com:10067 -d spotlight-staging-1 -u spotlight -p V4Mld1ws4C5To0N -o db/backups/"
+        # "mongodump -h dharma.mongohq.com:10067 -d spotlight-staging-1 -u spotlight -p V4Mld1ws4C5To0N -o db/backups/"
         dump_path = dump_db(from_env, temp_dir)
         restore(dump_path, to_env)
 
@@ -108,7 +108,7 @@ def restore(dump_path, to_env):
     execution_array.append(dump_path)
 
     echo("Executing: {}".format(execution_array))
-    result = subprocess.call(execution_array)
+    subprocess.call(execution_array)
 
 
 def drop(environ):
@@ -129,4 +129,4 @@ def drop(environ):
     echo()
     click.confirm('ARE YOU SURE??', abort=True)
 
-    result = subprocess.call(' '.join(execution_array), shell=True)
+    subprocess.call(' '.join(execution_array), shell=True)

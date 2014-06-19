@@ -203,16 +203,15 @@ def migrate(config, environment):
 
 @cli.command()
 @click.option('--migration-directory', default='./migrations', help='path to where you want to store your migrations')
-@pass_config
-def init(config, migration_directory):
+def init(migration_directory):
     """ Generates a default setting file.
 
         It will it in ./migrations and will create the package if it does not exist
 
     """
 
-    create_migration_directory_if_necessary(config.migration_directory)
-    settings_file = os.path.join(os.path.abspath(config.migration_directory), 'settings.py')
+    create_migration_directory_if_necessary(migration_directory)
+    settings_file = os.path.join(os.path.abspath(migration_directory), 'settings.py')
 
     if os.path.exists(settings_file):
         click.confirm("A settings file already exists.  Are you sure you want to overwrite it?", abort=True)
@@ -268,6 +267,7 @@ def copy_db(config, from_to):
         echo()
         copy_mongo_db(config.environments[from_db], config.environments[to_db])
 
+
 @cli.command()
 @click.argument('environment')
 @pass_config
@@ -275,7 +275,6 @@ def drop_db(config, environment):
     """ drops the database -- ARE YOU SURE YOU WANT TO DO THIS
     """
     drop_mongo_db(config.environments[environment])
-
 
 
 def find_migrations(config):
@@ -304,6 +303,7 @@ def exit_with_message(message):
 def confirm_environment(config, environment):
     if environment not in config.environments:
         exit_with_message("{} is not in settings.  Exiting ...".format(environment))
+
 
 @cli.command()
 @click.argument('environment')
@@ -339,7 +339,7 @@ def list_s3_backups(s3_settings):
 
 
 def sizeof_fmt(num):
-    for x in ['bytes','KB','MB','GB','TB']:
+    for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
         if num < 1024.0:
             return "%3.1f %s" % (num, x)
         num /= 1024.0
@@ -359,7 +359,6 @@ def list_backups(config):
         list_s3_backups(config.backups['S3'])
     else:
         exit_with_message('BACKUPS not configured, exiting')
-
 
 
 def backup_to_s3(config, environment, s3_settings):
@@ -461,7 +460,8 @@ def restore(config, from_to):
     if backup not in backups(config):
         exit_with_message('Can not find backup {}, run monarch list_backups to see your options'.format(backup))
 
-    if click.confirm('Are you SURE you want to retore backup into into {}? It will delete the database first'.format(to_db)):
+    msg = 'Are you SURE you want to retore backup into into {}? It will delete the database first'.format(to_db)
+    if click.confirm(msg):
         echo()
         echo("Okay, you asked for it ...")
         echo()
@@ -473,6 +473,7 @@ def temp_directory():
     temp_dir = mkdtemp()
     yield temp_dir
     shutil.rmtree(temp_dir)
+
 
 def restore_db(zip_path, to_environment):
     """unzips the file then runs a restore"""
@@ -486,11 +487,6 @@ def restore_db(zip_path, to_environment):
     echo()
 
 
-
-
-
-
-
 def backups(config):
     """returns a dictionary of {backup_name: backup_path}"""
     if config.backups is None:
@@ -502,6 +498,7 @@ def backups(config):
         return s3_backups(config.backups['S3'])
     else:
         exit_with_message('BACKUPS not configured, exiting')
+
 
 def local_backups(local_config):
     if 'backup_dir' not in local_config:
@@ -540,7 +537,8 @@ def generate_unique_name(backup_dir, environemnt):
         counter = 1
         while True:
             counter += 1
-            name_attempt = "{}__{}_{}.dmp.zip".format(environemnt['db_name'], datetime.utcnow().strftime("%Y_%m_%d"), counter)
+            name_attempt = "{}__{}_{}.dmp.zip".format(environemnt['db_name'],
+                                                      datetime.utcnow().strftime("%Y_%m_%d"), counter)
             name_attempt_full_path = os.path.join(backup_dir, name_attempt)
             if os.path.exists(name_attempt_full_path):
                 continue

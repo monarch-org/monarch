@@ -258,7 +258,7 @@ def test_copy_db():
 
         assert to_fishes.count() == 0
 
-        result = runner.invoke(cli, ['copy_db', 'from_test:to_test'], input="y\ny\n")
+        runner.invoke(cli, ['copy_db', 'from_test:to_test'], input="y\ny\n")
 
         assert to_fishes.count() == 1
 
@@ -295,6 +295,7 @@ def test_backup_database():
 
         assert result.exit_code == 0
         assert len([name for name in os.listdir(backup_dir)]) == 1
+
 
 @requires_mongoengine
 @with_setup(no_op, clear_mongo_databases)
@@ -346,9 +347,6 @@ def test_restore_database():
         to_db = get_db(TEST_ENVIRONEMNTS['to_test'])
         to_fishes = to_db.fishes
         assert to_fishes.count() == 1
-
-
-
 
 
 if __name__ == "__main__":

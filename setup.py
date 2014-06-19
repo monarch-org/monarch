@@ -1,6 +1,7 @@
 import os
 from setuptools import setup
 
+
 def get_packages():
     # setuptools can't do the job :(
     packages = []
