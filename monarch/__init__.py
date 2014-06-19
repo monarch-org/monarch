@@ -300,6 +300,21 @@ def list_backups(config):
 
 
 @cli.command()
+@pass_config
+def list_environments(config):
+    """ Lists Configured Environments
+    """
+    if config.environments:
+        for env in config.environments:
+            echo("{:40}: {}".format(env, config.environments[env]))
+    else:
+        echo()
+        echo("Yikes you have no environemnts set up -- you should set some up.  Maybe rerun monarch init")
+        echo()
+
+
+
+@cli.command()
 @click.argument('from_to')
 @pass_config
 def restore(config, from_to):
@@ -365,8 +380,13 @@ def confirm_environment(config, environment):
 def list_local_backups(local_config):
 
     _local_backups = local_backups(local_config)
-    for backup in _local_backups:
-        echo("{:50} {}".format(backup, sizeof_fmt(os.path.getsize(_local_backups[backup]))))
+    if _local_backups:
+        for backup in _local_backups:
+            echo("{:50} {}".format(backup, sizeof_fmt(os.path.getsize(_local_backups[backup]))))
+    else:
+        echo()
+        echo('You have not backups yet -- make some?  monarch backup <env_name>')
+        echo()
 
 
 def list_s3_backups(s3_settings):
