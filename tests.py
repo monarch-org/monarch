@@ -6,6 +6,7 @@ import tempfile
 import functools
 import contextlib
 from glob import glob
+from datetime import datetime
 from importlib import import_module
 
 # 3rd Party
@@ -117,7 +118,6 @@ def clear_mongo_databases():
     for env_name in TEST_ENVIRONEMNTS:
         env = TEST_ENVIRONEMNTS[env_name]
         client = MongoClient(host=env['host'], port=env['port'])
-        echo('Dropping: {}'.format(env['db_name']))
         client.drop_database(env['db_name'])
 
 
@@ -133,6 +133,8 @@ def initialize_monarch(working_dir, backup_dir=None):
 
     m = import_module('migrations')
     reload(m)
+    s = import_module('migrations.settings')
+    reload(s)
 
 
 def ensure_current_migrations_module_is_loaded():
@@ -217,9 +219,8 @@ def test_failed_migration():
     with isolated_filesystem_with_path() as cwd:
         initialize_monarch(cwd)
         result = runner.invoke(cli, ['generate', 'add_account_table'])
-        echo('output: {}'.format(result.output))
-        echo('exception: {}'.format(result.exception))
-
+        # echo('output: {}'.format(result.output))
+        # echo('exception: {}'.format(result.exception))
 
         # Update Migration Template with a *proper* migration
         current_migration = first_migration(cwd)
@@ -289,7 +290,6 @@ def test_backup_database():
 
         initialize_monarch(working_dir, backup_dir=backup_dir)
         populate_database('from_test')
-        import_module('migrations.settings')
 
         result = runner.invoke(cli, ['backup', 'from_test'])
 
@@ -306,12 +306,47 @@ def test_list_backups():
 
         initialize_monarch(working_dir, backup_dir=backup_dir)
         populate_database('from_test')
-        import_module('migrations.settings')
+
+        runner.invoke(cli, ['backup', 'from_test'])
+        runner.invoke(cli, ['backup', 'from_test'])
 
         result = runner.invoke(cli, ['list_backups'])
 
-        echo('output: {}'.format(result.output))
-        echo('exception: {}'.format(result.exception))
+        echo('tlb output: {}'.format(result.output))
+        echo('tlb exception: {}'.format(result.exception))
+
+        assert result.exit_code == 0
+        assert "from_monarch_test__{}.dmp.zip".format(datetime.utcnow().strftime("%Y_%m_%d")) in result.output
+        assert "from_monarch_test__{}_2.dmp.zip".format(datetime.utcnow().strftime("%Y_%m_%d")) in result.output
+
+
+@requires_mongoengine
+@with_setup(no_op, clear_mongo_databases)
+def test_restore_database():
+    runner = CliRunner()
+    with isolated_filesystem_with_path() as working_dir:
+        backup_dir = os.path.join(working_dir, 'backups')
+        os.mkdir(backup_dir)
+
+        initialize_monarch(working_dir, backup_dir=backup_dir)
+        populate_database('from_test')
+
+        result = runner.invoke(cli, ['backup', 'from_test'])
+        echo('trd_a output: {}'.format(result.output))
+        echo('trd_a exception: {}'.format(result.exception))
+        assert result.exit_code == 0
+
+        migration_name = "from_monarch_test__{}.dmp.zip".format(datetime.utcnow().strftime("%Y_%m_%d"))
+        result = runner.invoke(cli, ['restore', "{}:to_test".format(migration_name)], input="y\ny\n")
+        echo('trd_b output: {}'.format(result.output))
+        echo('trd_b exception: {}'.format(result.exception))
+        assert result.exit_code == 0
+
+        # Check to see if the database that was imported has the right data
+        to_db = get_db(TEST_ENVIRONEMNTS['to_test'])
+        to_fishes = to_db.fishes
+        assert to_fishes.count() == 1
+
 
 
 
