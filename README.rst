@@ -14,15 +14,19 @@ The Concept
 
 "migrations should happen naturally"
 
-**monarch** is a mongo utility belt that helps developers and admins deal with common admin usecases.  The main usecase
+**monarch** is a mongo utility belt that helps developers and admins deal with common admin use-cases.  The main use-case
 that this library was built for was _migrations_ but it does a bunch or other useful things like makes it easy to
 backup, restore, and copy environments between one another.
 
-It has been very helpful for our teams -- and hopefuly you guys can find it useful as well.
+It has been very helpful for our teams -- and hopefully you guys can find it useful as well.
 
 
 The Interface
 -------------
+
+Migrations
+~~~~~~~~~~
+Simple Migration Framework
 
 ``generate <migration_name>``
     Generates a new migration template.  In this template you write the necessary code to perform your migration
@@ -34,8 +38,19 @@ The Interface
     Runs all pending migration on the given environment.  Normally you will use `copy_db` to move the production environment
     locally and test the migrations locally first before doing on production
 
+
+Environment Management
+~~~~~~~~~~~~~~~~~~~~~~
+Utilities for moving databases between environments.  With support for backup/restore locally and to s3
+
+``init``
+    Initializes monarch for your project
+
+``list_environments``
+    Lists the environments under management
+
 ``backup <env name>``
-    Backs ups a given database.  Currently it only supports backing up locally.  But S3 support is coming soon.
+    Backs ups a given database.  You can backup to your local file system or to a Amazon S3 bucket
     Make sure you have BACKUPS configured in your migrations/settings.py file
     It will dump your database and compress it and give it a unquie name
 
@@ -53,8 +68,7 @@ The Interface
 
     This is most useful for copying the production database locally to test migrations before doing it for reals
 
-``init``
-    Initializes monarch for your project
+
 
 
 
@@ -150,6 +164,5 @@ Do whatever you want in that `run` method. I mean anything!  Go crazy wild man.
 
 RoadMap
 -------
-* S3 backup support
 * Support for PostgreSQL and the like
 * Use only pymongo (not mongoengine)
