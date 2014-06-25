@@ -3,8 +3,8 @@ import shutil
 import zipfile
 from datetime import datetime
 
-from .utils import temp_directory, exit_with_message, zipdir
 from .mongo import restore, dump_db
+from .utils import temp_directory, exit_with_message, zipdir
 
 
 def local_restore(zip_path, to_environment):
