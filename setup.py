@@ -22,7 +22,8 @@ setup(
     install_requires=[
         'Click',
         'jinja2',
-        'mongoengine'
+        'mongoengine',
+        'boto'
     ],
     tests_require=['nose'],
     test_suite='nose.collector',
