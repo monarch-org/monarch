@@ -12,8 +12,10 @@ from datetime import datetime
 from importlib import import_module
 
 # 3rd Party Imports
+import boto
 import click
 from click import echo
+from boto.s3.key import Key
 
 # Local Imports
 from .models import Migration
@@ -97,6 +99,24 @@ class Config(object):
         if hasattr(settings, 'BACKUPS'):
             self.backups = settings.BACKUPS
 
+            if 'S3' in self.backups and 'LOCAL' in self.backups:
+                exit_with_message('BACKUPS Setting has both LOCAL and S3 config -- choose one')
+            elif 'S3' not in self.backups and 'LOCAL' not in self.backups:
+                exit_with_message('BACKUPS are configured, but S3 or LOCAL is not defined -- please define one')
+            elif 'S3' in self.backups:
+                s3_config = self.backups['S3']
+
+                required_config = ['bucket_name', 'aws_access_key_id', 'aws_secret_access_key']
+
+                missing_config = []
+
+                for item in required_config:
+                    if item not in s3_config:
+                        missing_config.append(item)
+
+                if missing_config:
+                    msg = "Missing [] items in S3 section of your settings.py".format(", ".join(missing_config))
+                    exit_with_message(msg)
 
 pass_config = click.make_pass_decorator(Config, ensure=True)
 
@@ -269,16 +289,17 @@ def backup(config, environment):
         It is configured in the BACKUPS section of settings
         You can back up locally or to S3
     """
+    env_name = environment
 
     if not hasattr(config, 'backups'):
         exit_with_message('BACKUPS not configured, exiting')
 
-    confirm_environment(config, environment)
+    environment = confirm_environment(config, env_name)
 
     if 'LOCAL' in config.backups:
-        backup_localy(config, environment, config.backups['LOCAL'])
+        backup_localy(environment, config.backups['LOCAL'])
     elif 'S3' in config.backups:
-        backup_to_s3(config, environment, config.backups['S3'])
+        backup_to_s3(environment, config.backups['S3'])
     else:
         exit_with_message('BACKUPS not configured, exiting')
 
@@ -346,7 +367,7 @@ def restore(config, from_to):
         echo()
         echo("Okay, you asked for it ...")
         echo()
-        restore_db(backups(config)[backup], config.environments[to_db])
+        restore_db(config, backups(config)[backup], config.environments[to_db])
 
 
 def find_migrations(config):
@@ -372,9 +393,11 @@ def exit_with_message(message):
     exit()
 
 
-def confirm_environment(config, environment):
-    if environment not in config.environments:
-        exit_with_message("{} is not in settings.  Exiting ...".format(environment))
+def confirm_environment(config, env_name):
+    if env_name not in config.environments:
+        exit_with_message("{} is not in settings.  Exiting ...".format(env_name))
+    else:
+        return config.environments[env_name]
 
 
 def list_local_backups(local_config):
@@ -390,64 +413,39 @@ def list_local_backups(local_config):
 
 
 def list_s3_backups(s3_settings):
-    pass
+    _s3_backups = s3_backups(s3_settings)
+    if _s3_backups:
+        for backup in _s3_backups:
+            echo("{:50} {}".format(backup, sizeof_fmt(_s3_backups[backup].size)))
+    else:
+        echo()
+        echo('You have not backups yet -- make some?  monarch backup <env_name>')
+        echo()
 
 
-def backup_to_s3(config, environment, s3_settings):
-    raise NotImplementedError
-    # import os
-    # import boto
-    # import zipfile
-    # from boto.s3.key import Key
-    # from tempfile import mkdtemp, mkstemp
-    # from .mongo import dump_db
-    # # 1) dump db locally to temp file
-    # temp_dir = mkdtemp()
-    # dump_path = dump_db(enviornment, temp_dir)
-    #
-    # echo("Zipping File")
-    #
-    # # 2) compress file
-    # def zipdir(path, zip):
-    #     for root, dirs, files in os.walk(path):
-    #         for file in files:
-    #             zip.write(os.path.join(root, file))
-    #
-    # zipf = zipfile.ZipFile('MongoDump.zip', 'w')
-    # zipdir(dump_path, zipf)
-    # zipf.close()
-    #
-    # echo("Zipping File")
-    #
-    # # 3) upload to s3
-    # conn = boto.connect_s3(config.s3.aws_access_key_id, config.s3.aws_secret_access_key)
-    # bucket = conn.get_bucket(config.s3.bucket_name)
-    # k = Key(bucket)
-    # k.key = zipf.filename
-    # bytes_written = k.set_contents_from_filename(zipf.filename)
-    #
-    # # 4) print out the name of the bucket
-    # echo("Wrote {} btyes to s3".format(bytes_written))
+def get_s3_bucket(s3_settings):
+    conn = boto.connect_s3(s3_settings['aws_access_key_id'], s3_settings['aws_secret_access_key'])
+    bucket = conn.get_bucket(s3_settings['bucket_name'])
+    return bucket
 
 
-def backup_localy(config, env_name, local_settings):
+def backup_to_s3(environment, s3_settings):
 
-    if 'backup_dir' not in local_settings:
-        exit_with_message('Local Settings not configured correctly, expecting "backup_dir"')
+    zipf = dump_and_zip(environment)
 
-    backup_dir = local_settings['backup_dir']
+    key = generate_uniqueish_key(s3_settings, environment)
 
-    if not os.path.isdir(backup_dir):
-        exit_with_message('Directory [{}] does not exist.  Exiting ...'.format(backup_dir))
+    bytes_written = key.set_contents_from_filename(zipf.filename)
 
+    # 4) print out the name of the bucket
+    echo("Wrote {} btyes to s3".format(bytes_written))
+
+
+def dump_and_zip(from_env):
     # 1) dump db locally to temp file
     temp_dir = mkdtemp()
-
-    echo("envs {}".format(config.environments))
-
-    dump_path = dump_db(config.environments[env_name], temp_dir)
+    dump_path = dump_db(from_env, temp_dir)
     echo("Zipping File")
-
     # 2) compress file
     def zipdir(path, zip):
         for root, dirs, files in os.walk(path):
@@ -457,20 +455,79 @@ def backup_localy(config, env_name, local_settings):
     zipf = zipfile.ZipFile('MongoDump.zip', 'w')
     zipdir(dump_path, zipf)
     zipf.close()
+    return zipf
 
-    echo("Moving {} file into: {}".format(zipf.filename, backup_dir))
 
-    unique_file_path = generate_unique_name(backup_dir, config.environments[env_name])
+def generate_uniqueish_key(s3_settings, environment):
+    bucket = get_s3_bucket(s3_settings)
+
+    name_attempt = "{}__{}.dmp.zip".format(environment['db_name'], datetime.utcnow().strftime("%Y_%m_%d"))
+
+    key = bucket.get_key(name_attempt)
+
+    if not key:
+        key = Key(bucket)
+        key.key = name_attempt
+        return key
+    else:
+        counter = 1
+        while True:
+            counter += 1
+            name_attempt = "{}__{}_{}.dmp.zip".format(environment['db_name'],
+                                                      datetime.utcnow().strftime("%Y_%m_%d"), counter)
+
+            if bucket.get_key(name_attempt):
+                continue
+            else:
+                key = Key(bucket)
+                key.key = name_attempt
+                return key
+
+
+def backup_localy(enviornment, local_settings):
+
+    if 'backup_dir' not in local_settings:
+        exit_with_message('Local Settings not configured correctly, expecting "backup_dir"')
+
+    backup_dir = local_settings['backup_dir']
+
+    if not os.path.isdir(backup_dir):
+        exit_with_message('Directory [{}] does not exist.  Exiting ...'.format(backup_dir))
+
+    zipf = dump_and_zip(enviornment)
+
+    unique_file_path = generate_unique_name(backup_dir, enviornment)
 
     shutil.move(zipf.filename, unique_file_path)
 
 
-def restore_db(zip_path, to_environment):
-    """unzips the file then runs a restore"""
+def local_restore(zip_path, to_environment):
     zip = zipfile.ZipFile(zip_path)
     with temp_directory() as temp_dir:
         zip.extractall(path=temp_dir)
         restore_mongo_db(temp_dir, to_environment)
+
+
+def s3_restore(key, to_enviornment):
+
+    with temp_directory() as temp_dir:
+        zip_path = os.path.join(temp_dir, 'MongoDump.zip')
+        key.get_contents_to_filename(zip_path)
+        local_restore(zip_path, to_enviornment)
+
+
+def restore_db(config, path_or_key, to_environment):
+    """unzips the file then runs a restore"""
+
+    if config.backups is None:
+        exit_with_message('BACKUPS not configured, exiting')
+
+    if 'LOCAL' in config.backups:
+        return local_restore(path_or_key, to_environment)
+    elif 'S3' in config.backups:
+        return s3_restore(path_or_key, to_environment)
+    else:
+        exit_with_message('BACKUPS not configured, exiting')
 
     echo()
     echo("Rock and roll that seemed to go well -- Nice work")
@@ -507,7 +564,15 @@ def local_backups(local_config):
 
 
 def s3_backups(s3_config):
-    raise NotImplementedError
+    """ a dict of key.name: key
+    """
+    bucket = get_s3_bucket(s3_config)
+
+    buckets = {}
+    for key in bucket.get_all_keys():
+        buckets[key.name] = key
+
+    return buckets
 
 
 def generate_unique_name(backup_dir, environemnt):
@@ -515,7 +580,6 @@ def generate_unique_name(backup_dir, environemnt):
     # database_name__2013_03_01.dmp.zip
     # or if that exists
     # database_name__2013_03_01(2).dmp.zip
-    from datetime import datetime
     name_attempt = "{}__{}.dmp.zip".format(environemnt['db_name'], datetime.utcnow().strftime("%Y_%m_%d"))
 
     # check if file exists
