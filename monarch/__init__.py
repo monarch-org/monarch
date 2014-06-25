@@ -9,7 +9,7 @@ from click import echo
 # Local Imports
 from .models import Migration
 from .utils import temp_directory, camel_to_underscore, underscore_to_camel, \
-                    sizeof_fmt, exit_with_message
+    sizeof_fmt, exit_with_message
 from .mongo import drop as drop_mongo_db
 from .mongo import copy_db as copy_mongo_db
 from .mongo import MongoMigrationHistory, MongoBackedMigration
@@ -327,7 +327,6 @@ def list_environments(config):
         echo()
         echo("Yikes you have no environemnts set up -- you should set some up.  Maybe rerun monarch init")
         echo()
-
 
 
 @cli.command()

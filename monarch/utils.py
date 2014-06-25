@@ -10,11 +10,13 @@ from click import echo
 CAMEL_PAT = re.compile(r'([A-Z])')
 UNDER_PAT = re.compile(r'_([a-z])')
 
+
 @contextmanager
 def temp_directory():
     temp_dir = mkdtemp()
     yield temp_dir
     shutil.rmtree(temp_dir)
+
 
 def camel_to_underscore(name):
     return CAMEL_PAT.sub(lambda x: '_' + x.group(1).lower(), name)
@@ -22,6 +24,7 @@ def camel_to_underscore(name):
 
 def underscore_to_camel(name):
     return UNDER_PAT.sub(lambda x: x.group(1).upper(), name.capitalize())
+
 
 def sizeof_fmt(num):
     for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
@@ -40,6 +43,7 @@ def zipdir(dump_path):
     _zipdir(dump_path, zipf)
     zipf.close()
     return zipf
+
 
 def exit_with_message(message):
     echo()
