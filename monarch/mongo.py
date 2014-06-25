@@ -1,5 +1,7 @@
-import click
 import subprocess
+from tempfile import mkdtemp
+
+import click
 import mongoengine
 from click import echo
 
@@ -50,7 +52,10 @@ class MongoBackedMigration(Migration):
         return migration_meta.state
 
 
-def dump_db(from_env, temp_dir):
+def dump_db(from_env, temp_dir=None):
+
+    if not temp_dir:
+        temp_dir = mkdtemp()
 
     echo("env: {}".format(from_env))
 

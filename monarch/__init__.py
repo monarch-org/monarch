@@ -1,31 +1,26 @@
 # Core Imports
-import re
 import os
-import errno
-import shutil
-import inspect
-import zipfile
-import collections
-from glob import glob
-from tempfile import mkdtemp
-from datetime import datetime
 from importlib import import_module
 
 # 3rd Party Imports
-import boto
 import click
 from click import echo
-from boto.s3.key import Key
 
 # Local Imports
 from .models import Migration
-from .utils import temp_directory, camel_to_underscore, underscore_to_camel, sizeof_fmt
+from .utils import temp_directory, camel_to_underscore, underscore_to_camel, \
+                    sizeof_fmt, exit_with_message
 from .mongo import drop as drop_mongo_db
 from .mongo import copy_db as copy_mongo_db
 from .mongo import MongoMigrationHistory, MongoBackedMigration
 from .mongo import dump_db, restore as restore_mongo_db
 from .mongo import establish_datastore_connection
 
+from .s3 import get_s3_bucket, generate_uniqueish_key, backup_to_s3, s3_restore, s3_backups
+
+from .local import local_restore, local_backups, backup_localy
+
+from .migrations import generate_migration_name, create_migration_directory_if_necessary, find_migrations
 
 MIGRATION_TEMPLATE = '''
 from monarch import {base_class}
@@ -370,29 +365,6 @@ def restore(config, from_to):
         restore_db(config, backups(config)[backup], config.environments[to_db])
 
 
-def find_migrations(config):
-    migrations = {}
-    click.echo("fm 1 cwd: {}".format(os.getcwd()))
-    for file in glob('{}/*_migration.py'.format(config.migration_directory)):
-        migration_name = os.path.splitext(os.path.basename(file))[0]
-        migration_module = import_module("migrations.{}".format(migration_name))
-        for name, obj in inspect.getmembers(migration_module):
-            if inspect.isclass(obj) and re.search('Migration$', name) and name not in ['BaseMigration',
-                                                                                       'MongoBackedMigration']:
-                migrations[migration_name] = obj
-
-    # 2) Ensure that the are ordered
-    ordered = collections.OrderedDict(sorted(migrations.items()))
-    return ordered
-
-
-def exit_with_message(message):
-    echo()
-    echo(message)
-    echo()
-    exit()
-
-
 def confirm_environment(config, env_name):
     if env_name not in config.environments:
         exit_with_message("{} is not in settings.  Exiting ...".format(env_name))
@@ -421,99 +393,6 @@ def list_s3_backups(s3_settings):
         echo()
         echo('You have not backups yet -- make some?  monarch backup <env_name>')
         echo()
-
-
-def get_s3_bucket(s3_settings):
-    conn = boto.connect_s3(s3_settings['aws_access_key_id'], s3_settings['aws_secret_access_key'])
-    bucket = conn.get_bucket(s3_settings['bucket_name'])
-    return bucket
-
-
-def backup_to_s3(environment, s3_settings):
-
-    zipf = dump_and_zip(environment)
-
-    key = generate_uniqueish_key(s3_settings, environment)
-
-    bytes_written = key.set_contents_from_filename(zipf.filename)
-
-    # 4) print out the name of the bucket
-    echo("Wrote {} btyes to s3".format(bytes_written))
-
-
-def dump_and_zip(from_env):
-    # 1) dump db locally to temp file
-    temp_dir = mkdtemp()
-    dump_path = dump_db(from_env, temp_dir)
-    echo("Zipping File")
-    # 2) compress file
-    def zipdir(path, zip):
-        for root, dirs, files in os.walk(path):
-            for file in files:
-                zip.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), root))
-
-    zipf = zipfile.ZipFile('MongoDump.zip', 'w')
-    zipdir(dump_path, zipf)
-    zipf.close()
-    return zipf
-
-
-def generate_uniqueish_key(s3_settings, environment):
-    bucket = get_s3_bucket(s3_settings)
-
-    name_attempt = "{}__{}.dmp.zip".format(environment['db_name'], datetime.utcnow().strftime("%Y_%m_%d"))
-
-    key = bucket.get_key(name_attempt)
-
-    if not key:
-        key = Key(bucket)
-        key.key = name_attempt
-        return key
-    else:
-        counter = 1
-        while True:
-            counter += 1
-            name_attempt = "{}__{}_{}.dmp.zip".format(environment['db_name'],
-                                                      datetime.utcnow().strftime("%Y_%m_%d"), counter)
-
-            if bucket.get_key(name_attempt):
-                continue
-            else:
-                key = Key(bucket)
-                key.key = name_attempt
-                return key
-
-
-def backup_localy(enviornment, local_settings):
-
-    if 'backup_dir' not in local_settings:
-        exit_with_message('Local Settings not configured correctly, expecting "backup_dir"')
-
-    backup_dir = local_settings['backup_dir']
-
-    if not os.path.isdir(backup_dir):
-        exit_with_message('Directory [{}] does not exist.  Exiting ...'.format(backup_dir))
-
-    zipf = dump_and_zip(enviornment)
-
-    unique_file_path = generate_unique_name(backup_dir, enviornment)
-
-    shutil.move(zipf.filename, unique_file_path)
-
-
-def local_restore(zip_path, to_environment):
-    zip = zipfile.ZipFile(zip_path)
-    with temp_directory() as temp_dir:
-        zip.extractall(path=temp_dir)
-        restore_mongo_db(temp_dir, to_environment)
-
-
-def s3_restore(key, to_enviornment):
-
-    with temp_directory() as temp_dir:
-        zip_path = os.path.join(temp_dir, 'MongoDump.zip')
-        key.get_contents_to_filename(zip_path)
-        local_restore(zip_path, to_enviornment)
 
 
 def restore_db(config, path_or_key, to_environment):
@@ -545,81 +424,3 @@ def backups(config):
         return s3_backups(config.backups['S3'])
     else:
         exit_with_message('BACKUPS not configured, exiting')
-
-
-def local_backups(local_config):
-    if 'backup_dir' not in local_config:
-        exit_with_message('Local Settings not configured correctly, expecting "backup_dir"')
-
-    backup_dir = local_config['backup_dir']
-
-    if not os.path.isdir(backup_dir):
-        exit_with_message('Directory [{}] does not exist.  Exiting ...'.format(backup_dir))
-
-    backups = {}
-    for item in os.listdir(backup_dir):
-        backups[item] = os.path.join(backup_dir, item)
-
-    return backups
-
-
-def s3_backups(s3_config):
-    """ a dict of key.name: key
-    """
-    bucket = get_s3_bucket(s3_config)
-
-    buckets = {}
-    for key in bucket.get_all_keys():
-        buckets[key.name] = key
-
-    return buckets
-
-
-def generate_unique_name(backup_dir, environemnt):
-    # generate_file_name
-    # database_name__2013_03_01.dmp.zip
-    # or if that exists
-    # database_name__2013_03_01(2).dmp.zip
-    name_attempt = "{}__{}.dmp.zip".format(environemnt['db_name'], datetime.utcnow().strftime("%Y_%m_%d"))
-
-    # check if file exists
-    name_attemp_full_path = os.path.join(backup_dir, name_attempt)
-
-    if not os.path.exists(name_attemp_full_path):
-        return name_attemp_full_path
-    else:
-        counter = 1
-        while True:
-            counter += 1
-            name_attempt = "{}__{}_{}.dmp.zip".format(environemnt['db_name'],
-                                                      datetime.utcnow().strftime("%Y_%m_%d"), counter)
-            name_attempt_full_path = os.path.join(backup_dir, name_attempt)
-            if os.path.exists(name_attempt_full_path):
-                continue
-            else:
-                return name_attempt_full_path
-
-
-def generate_migration_name(folder, name):
-    # Can not start with a number so starting with a underscore
-    rel_path = "{folder}/_{timestamp}_{name}_migration.py".format(
-        folder=folder,
-        timestamp=datetime.utcnow().strftime('%Y%m%d%H%M'),
-        name=name
-    )
-    return os.path.abspath(rel_path)
-
-
-def create_migration_directory_if_necessary(dir):
-    try:
-        os.makedirs(dir)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-
-    try:
-        with open(os.path.join(os.path.abspath(dir), '__init__.py'), 'w') as f:
-            f.write('# this file makes migrations a package')
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise

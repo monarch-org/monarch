@@ -258,7 +258,9 @@ def test_copy_db():
 
         assert to_fishes.count() == 0
 
-        runner.invoke(cli, ['copy_db', 'from_test:to_test'], input="y\ny\n")
+        result = runner.invoke(cli, ['copy_db', 'from_test:to_test'], input="y\ny\n")
+        echo('trd_a output: {}'.format(result.output))
+        echo('trd_a exception: {}'.format(result.exception))
 
         assert to_fishes.count() == 1
 
@@ -333,14 +335,10 @@ def test_restore_database():
         populate_database('from_test')
 
         result = runner.invoke(cli, ['backup', 'from_test'])
-        echo('trd_a output: {}'.format(result.output))
-        echo('trd_a exception: {}'.format(result.exception))
         assert result.exit_code == 0
 
         migration_name = "from_monarch_test__{}.dmp.zip".format(datetime.utcnow().strftime("%Y_%m_%d"))
         result = runner.invoke(cli, ['restore', "{}:to_test".format(migration_name)], input="y\ny\n")
-        echo('trd_b output: {}'.format(result.output))
-        echo('trd_b exception: {}'.format(result.exception))
         assert result.exit_code == 0
 
         # Check to see if the database that was imported has the right data
