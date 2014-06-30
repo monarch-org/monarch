@@ -1,5 +1,6 @@
 # Core Imports
 import os
+import sys
 from importlib import import_module
 
 # 3rd Party Imports
@@ -84,7 +85,12 @@ class Config(object):
         self.config_directory = None
 
     def configure_from_settings_file(self):
-        settings = import_module('migrations.settings')
+        try:
+            sys.path.append(os.getcwd())
+
+            settings = import_module('migrations.settings')
+        except ImportError:
+            exit_with_message("Could not find your settings.py file -- did you run monarch init?")
 
         if not hasattr(settings, 'ENVIRONMENTS'):
             exit_with_message('Configuration file should have a ENVIRONMENTS method set')
@@ -255,10 +261,10 @@ def copy_db(config, from_to):
         exit_with_message('Configuration file should have a ENVIRONMENTS set')
 
     if from_db not in config.environments:
-        exit_with_message('Environemnts does not have a specification for {}'.format(from_db))
+        exit_with_message('Environments does not have a specification for {}'.format(from_db))
 
     if to_db not in config.environments:
-        exit_with_message('Environemnts does not have a specification for {}'.format(to_db))
+        exit_with_message('Environments does not have a specification for {}'.format(to_db))
 
     if click.confirm('Are you SURE you want to copy data from {} into {}?'.format(from_db, to_db)):
         echo()
@@ -325,7 +331,7 @@ def list_environments(config):
             echo("{:40}: {}".format(env, config.environments[env]))
     else:
         echo()
-        echo("Yikes you have no environemnts set up -- you should set some up.  Maybe rerun monarch init")
+        echo("Yikes you have no environments set up -- you should set some up.  Maybe rerun monarch init")
         echo()
 
 
@@ -351,12 +357,12 @@ def restore(config, from_to):
         exit_with_message('Configuration file should have a ENVIRONMENTS set')
 
     if to_db not in config.environments:
-        exit_with_message('Environemnts does not have a specification for {}'.format(to_db))
+        exit_with_message('Environments does not have a specification for {}'.format(to_db))
 
     if backup not in backups(config):
         exit_with_message('Can not find backup {}, run monarch list_backups to see your options'.format(backup))
 
-    msg = 'Are you SURE you want to retore backup into into {}? It will delete the database first'.format(to_db)
+    msg = 'Are you SURE you want to restore backup into into {}? It will delete the database first'.format(to_db)
     if click.confirm(msg):
         echo()
         echo("Okay, you asked for it ...")
