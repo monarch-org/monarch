@@ -10,9 +10,17 @@ from .models import Migration, MigrationHistoryStorage
 
 
 def establish_datastore_connection(environment):
-    mongo_name = environment['db_name']
-    mongo_port = int(environment['port'])
-    mongoengine.connect(mongo_name, port=mongo_port)
+    mongo_db_name = environment['db_name']
+
+    args = {}
+    args['host'] = environment['host']
+    args['port'] = environment['port']
+    if 'username' in environment:
+        args['username'] = environment['username']
+    if 'password' in environment:
+        args['password'] = environment['password']
+
+    mongoengine.connect(mongo_db_name, **args)
 
 
 class MongoMigrationHistory(MigrationHistoryStorage, mongoengine.Document):
