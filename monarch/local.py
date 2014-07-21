@@ -30,7 +30,7 @@ def local_backups(local_config):
     return backups
 
 
-def backup_localy(environment, local_settings):
+def backup_localy(environment, local_settings, name):
 
     if 'backup_dir' not in local_settings:
         exit_with_message('Local Settings not configured correctly, expecting "backup_dir"')
@@ -43,17 +43,23 @@ def backup_localy(environment, local_settings):
     dump_path = dump_db(environment)
     zipf = zipdir(dump_path)
 
-    unique_file_path = generate_unique_name(backup_dir, environment)
+    unique_file_path = generate_unique_name(backup_dir, environment, name)
 
     shutil.move(zipf.filename, unique_file_path)
 
 
-def generate_unique_name(backup_dir, environemnt):
+def generate_unique_name(backup_dir, environemnt, name_prefix):
     # generate_file_name
     # database_name__2013_03_01.dmp.zip
     # or if that exists
     # database_name__2013_03_01(2).dmp.zip
-    name_attempt = "{}__{}.dmp.zip".format(environemnt['db_name'], datetime.utcnow().strftime("%Y_%m_%d"))
+
+    if name_prefix and name_prefix != '':
+        name_base = name_prefix
+    else:
+        name_base = environemnt['db_name']
+
+    name_attempt = "{}__{}.dmp.zip".format(name_base, datetime.utcnow().strftime("%Y_%m_%d"))
 
     # check if file exists
     name_attempt_full_path = os.path.join(backup_dir, name_attempt)
@@ -64,7 +70,7 @@ def generate_unique_name(backup_dir, environemnt):
         counter = 1
         while True:
             counter += 1
-            name_attempt = "{}__{}_{}.dmp.zip".format(environemnt['db_name'],
+            name_attempt = "{}__{}_{}.dmp.zip".format(name_base,
                                                       datetime.utcnow().strftime("%Y_%m_%d"), counter)
             name_attempt_full_path = os.path.join(backup_dir, name_attempt)
             if os.path.exists(name_attempt_full_path):

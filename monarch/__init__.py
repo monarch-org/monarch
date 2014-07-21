@@ -284,11 +284,15 @@ def drop_db(config, environment):
 
 @cli.command()
 @click.argument('environment')
+@click.option('--name', help='name to prefix the backup with')
 @pass_config
-def backup(config, environment):
+def backup(config, environment, name):
     """ Backs up a given datastore
         It is configured in the BACKUPS section of settings
         You can back up locally or to S3
+
+        use --name if you want to specify a name, otherwise it will use your environment name
+
     """
     env_name = environment
 
@@ -298,9 +302,9 @@ def backup(config, environment):
     environment = confirm_environment(config, env_name)
 
     if 'LOCAL' in config.backups:
-        backup_localy(environment, config.backups['LOCAL'])
+        backup_localy(environment, config.backups['LOCAL'], name)
     elif 'S3' in config.backups:
-        backup_to_s3(environment, config.backups['S3'])
+        backup_to_s3(environment, config.backups['S3'], name)
     else:
         exit_with_message('BACKUPS not configured, exiting')
 

@@ -17,10 +17,15 @@ def get_s3_bucket(s3_settings):
     return bucket
 
 
-def generate_uniqueish_key(s3_settings, environment):
+def generate_uniqueish_key(s3_settings, environment, name_prefix):
     bucket = get_s3_bucket(s3_settings)
 
-    name_attempt = "{}__{}.dmp.zip".format(environment['db_name'], datetime.utcnow().strftime("%Y_%m_%d"))
+    if name_prefix and name_prefix != '':
+        name_base = name_prefix
+    else:
+        name_base = environment['db_name']
+
+    name_attempt = "{}__{}.dmp.zip".format(name_base, datetime.utcnow().strftime("%Y_%m_%d"))
 
     key = bucket.get_key(name_attempt)
 
@@ -32,8 +37,8 @@ def generate_uniqueish_key(s3_settings, environment):
         counter = 1
         while True:
             counter += 1
-            name_attempt = "{}__{}_{}.dmp.zip".format(environment['db_name'],
-                                                      datetime.utcnow().strftime("%Y_%m_%d"), counter)
+            name_attempt = "{}__{}_{}.dmp.zip".format(name_base,
+                                          datetime.utcnow().strftime("%Y_%m_%d"), counter)
 
             if bucket.get_key(name_attempt):
                 continue
@@ -43,12 +48,12 @@ def generate_uniqueish_key(s3_settings, environment):
                 return key
 
 
-def backup_to_s3(environment, s3_settings):
+def backup_to_s3(environment, s3_settings, name):
 
     dump_path = dump_db(environment)
     zipf = zipdir(dump_path)
 
-    key = generate_uniqueish_key(s3_settings, environment)
+    key = generate_uniqueish_key(s3_settings, environment, name)
 
     bytes_written = key.set_contents_from_filename(zipf.filename)
 
