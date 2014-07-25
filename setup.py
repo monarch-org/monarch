@@ -13,7 +13,7 @@ def get_packages():
 
 setup(
     name='monarch',
-    version='0.1.0',
+    version='0.1.1',
     description='The un-migration migration tool',
     url='http://github.com/jtushman/monarch',
     author='Jonathan Tushman',

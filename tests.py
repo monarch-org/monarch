@@ -284,6 +284,42 @@ def test_list_migrations():
 
 @requires_mongoengine
 @with_setup(no_op, clear_mongo_databases)
+def test_one_off_migration():
+    runner = CliRunner()
+
+    with isolated_filesystem_with_path() as working_dir:
+        initialize_monarch(working_dir)
+
+        runner.invoke(cli, ['generate', 'add_column_to_user_table'])
+
+        # Update Migration Template with a *proper* migration
+        current_migration = first_migration(working_dir)
+        class_name = "{}Migration".format('AddColumnToUserTable')
+        with open(current_migration, 'w') as f:
+            f.write(TEST_MIGRATION.format(migration_class_name=class_name))
+
+        for migration_name in ['add_indexes', 'add_user_table', 'add_account_table']:
+            runner.invoke(cli, ['generate', migration_name])
+
+        ensure_current_migrations_module_is_loaded()
+
+        list_result = runner.invoke(cli, ['list_migrations', 'test'])
+
+        a_migration_to_run = list_result.output.split('\n')[3].split(' ')[0]
+
+        result = runner.invoke(cli, ['migrate_one', a_migration_to_run, 'test'])
+        assert result.exit_code == 0
+
+        # do it again -- you can with migrate_one
+
+        result = runner.invoke(cli, ['migrate_one', a_migration_to_run, 'test'])
+        assert result.exit_code == 0
+
+
+
+
+@requires_mongoengine
+@with_setup(no_op, clear_mongo_databases)
 def test_backup_database():
     runner = CliRunner()
     with isolated_filesystem_with_path() as working_dir:

@@ -34,10 +34,10 @@ class Migration(object):
     def status(self):
         raise NotImplementedError("This is an abstract class")
 
-    def process(self):
+    def process(self, force=False):
         click.echo("Processing {}".format(self.migration_name))
 
-        if self.status == Migration.STATE_NEW:
+        if self.status == Migration.STATE_NEW or force:
             self.update_status(Migration.STATE_PROCESSING)
             echo("Starting: {}".format(self.migration_name))
             try:
@@ -59,6 +59,7 @@ class Migration(object):
             echo("{} has already been processed".format(self.migration_name))
         elif self.status == Migration.STATE_FAILED:
             echo("{} has already been processed, and failed - best to restart".format(self.migration_name))
+
 
     def run(self):
         """Should be implemented by subclass"""

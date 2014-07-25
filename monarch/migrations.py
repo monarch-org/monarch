@@ -38,7 +38,6 @@ def create_migration_directory_if_necessary(dir):
 
 def find_migrations(config):
     migrations = {}
-    echo("fm 1 cwd: {}".format(os.getcwd()))
     for file in glob('{}/*_migration.py'.format(config.migration_directory)):
         migration_name = os.path.splitext(os.path.basename(file))[0]
         migration_module = import_module("migrations.{}".format(migration_name))

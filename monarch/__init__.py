@@ -212,6 +212,35 @@ def migrate(config, environment):
         click.echo("No migrations exist")
 
 
+
+@cli.command()
+@click.argument('migration_name')
+@click.argument('environment')
+@pass_config
+def migrate_one(config, migration_name, environment):
+    """
+    Runs all migrations that have yet to have run.
+    :return:
+    """
+    if environment not in config.environments:
+        exit_with_message("Environment not described in settings.py")
+
+    establish_datastore_connection(config.environments[environment])
+
+    # 1) Find all migrations in the migrations/ directory
+    # key = name, value = MigrationClass
+    migration = find_migration(config, migration_name)
+    migration.process(force=True)
+
+
+def find_migration(config, migration_name):
+
+    migrations = find_migrations(config)
+    migration_class = migrations[migration_name]
+    return migration_class()
+
+
+
 @cli.command()
 @click.option('--migration-directory', default='./migrations', help='path to where you want to store your migrations')
 def init(migration_directory):

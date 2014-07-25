@@ -38,6 +38,9 @@ Simple Migration Framework
     Runs all pending migration on the given environment.  Normally you will use `copy_db` to move the production environment
     locally and test the migrations locally first before doing on production
 
+``migrate_one <migration_name> <env_name>``
+    Run a specific migration -- no matter its status.  Helpful for rapid test iteration
+
 
 Environment Management
 ~~~~~~~~~~~~~~~~~~~~~~
