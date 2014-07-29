@@ -41,6 +41,10 @@ from monarch import {base_class}
 #                  length=number_of_users) as bar:
 #    for user in bar:
 #        modify_the_user(user)
+#
+#
+# Note: Using echos (or prints) will mess up the way this looks
+#
 # More info: http://click.pocoo.org/utils/#showing-progress-bars
 
 
