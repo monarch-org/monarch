@@ -5,7 +5,12 @@ from importlib import import_module
 
 # 3rd Party Imports
 import click
-from click import echo
+
+from click import echo, progressbar
+
+#exposing echo and progressbar as utilities for migrations
+echo = echo
+progressbar = progressbar
 
 # Local Imports
 from .models import Migration
@@ -24,7 +29,20 @@ from .utils import temp_directory, camel_to_underscore, \
 
 
 MIGRATION_TEMPLATE = '''
+from monarch import echo
 from monarch import {base_class}
+
+# Optionally
+# from monarch import progressbar
+#
+# Usage:
+# with progressbar(all_the_users_to_process,
+#                  label='Modifying user accounts',
+#                  length=number_of_users) as bar:
+#    for user in bar:
+#        modify_the_user(user)
+# More info: http://click.pocoo.org/utils/#showing-progress-bars
+
 
 class {migration_class_name}({base_class}):
 

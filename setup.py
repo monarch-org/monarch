@@ -20,7 +20,7 @@ setup(
     author_email='jonathan@zefr.com',
     packages=get_packages(),
     install_requires=[
-        'Click',
+        'Click>2.0',
         'jinja2',
         'mongoengine',
         'boto'
