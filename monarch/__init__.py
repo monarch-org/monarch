@@ -1,5 +1,6 @@
 # Core Imports
 import os
+import re
 import sys
 from importlib import import_module
 
@@ -220,6 +221,8 @@ def migrate(config, environment):
     if environment not in config.environments:
         exit_with_message("Environment not described in settings.py")
 
+    check_for_hazardous_operations(config, environment)
+
     # 1) Find all migrations in the migrations/ directory
     # key = name, value = MigrationClass
     migrations = find_migrations(config)
@@ -246,6 +249,8 @@ def migrate_one(config, migration_name, environment):
     """
     if environment not in config.environments:
         exit_with_message("Environment not described in settings.py")
+
+    check_for_hazardous_operations(config, environment)
 
     establish_datastore_connection(config.environments[environment])
 
@@ -308,6 +313,8 @@ def copy_db(config, from_to):
 
     from_db, to_db = from_to.split(':')
 
+    check_for_hazardous_operations(config, to_db)
+
     if config.environments is None:
         exit_with_message('Configuration file should have a ENVIRONMENTS set')
 
@@ -330,6 +337,9 @@ def copy_db(config, from_to):
 def drop_db(config, environment):
     """ drops the database -- ARE YOU SURE YOU WANT TO DO THIS
     """
+
+    check_for_hazardous_operations(config, environment)
+
     drop_mongo_db(config.environments[environment])
 
 
@@ -408,6 +418,8 @@ def restore(config, from_to):
 
     backup, to_db = from_to.split(':')
 
+    check_for_hazardous_operations(config, to_db)
+
     if config.environments is None:
         exit_with_message('Configuration file should have a ENVIRONMENTS set')
 
@@ -484,3 +496,48 @@ def backups(config):
         return s3_backups(config.backups['S3'])
     else:
         exit_with_message('BACKUPS not configured, exiting')
+
+
+def test_for_human():
+    from random import randint
+    int_1 = randint(0, 100)
+    int_2 = randint(0, 100)
+
+    sum = int_1 + int_2
+
+    value = click.prompt('What is the sum of {} and {}?'.format(int_1, int_2), type=int)
+
+    if value != sum:
+        exit_with_message('You have chosen poorly')
+    else:
+        echo("Good enough for me -- continue")
+
+ensure_smarter_than_a_4_year_old = test_for_human
+
+
+def check_for_hazardous_operations(config, env_name):
+
+    if env_name not in config.environments:
+        exit_with_message("Environment not described in settings.py")
+
+    env = config.environments[env_name]
+    db_name = env['db_name']
+    db_host = env['host']
+
+    ends_with_dot_local = re.compile("local$")
+
+    def looks_like_a_remote_host(host_name):
+        if db_host in ('localhost', '127.0.0.1'):
+            return False
+
+        if ends_with_dot_local.search(db_host) is not None:
+            return False
+
+        #not sure so assuming remote
+        return True
+
+    dangerous = (env_name == 'production' or looks_like_a_remote_host(db_host))
+
+    if dangerous:
+        echo('You are about to perform a potentially hazardous operation. \n\nenv: [{}] db_host [{}]\nComputer Breath-o-lizer test:'.format(env_name, db_host))
+        ensure_smarter_than_a_4_year_old()

@@ -286,12 +286,10 @@ def test_list_migrations():
 @with_setup(no_op, clear_mongo_databases)
 def test_one_off_migration():
     runner = CliRunner()
-
     with isolated_filesystem_with_path() as working_dir:
         initialize_monarch(working_dir)
 
         runner.invoke(cli, ['generate', 'add_column_to_user_table'])
-
         # Update Migration Template with a *proper* migration
         current_migration = first_migration(working_dir)
         class_name = "{}Migration".format('AddColumnToUserTable')
@@ -311,7 +309,6 @@ def test_one_off_migration():
         assert result.exit_code == 0
 
         # do it again -- you can with migrate_one
-
         result = runner.invoke(cli, ['migrate_one', a_migration_to_run, 'test'])
         assert result.exit_code == 0
 
