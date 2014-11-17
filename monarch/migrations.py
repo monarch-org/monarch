@@ -30,7 +30,7 @@ def create_migration_directory_if_necessary(dir):
 
     try:
         with open(os.path.join(os.path.abspath(dir), '__init__.py'), 'w') as f:
-            f.write('# this file makes migrations a package')
+            f.write('# this file makes migrations a package\n')
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
