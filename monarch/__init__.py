@@ -14,12 +14,13 @@ echo = echo
 progressbar = progressbar
 
 # Local Imports
-from .models import Migration
+from .models import Migration, QuerySet
 from .local import local_restore, local_backups, backup_localy
 from .s3 import get_s3_bucket, generate_uniqueish_key, backup_to_s3, s3_restore, s3_backups
-from .migrations import generate_migration_name, create_migration_directory_if_necessary, find_migrations
+from .migrations import generate_migration_name, create_package_if_necessary, find_migrations
+from .query_sets import querysets, generate_queryset_name
 
-from .mongo import MongoMigrationHistory, MongoBackedMigration, dump_db, \
+from .mongo import MongoMigrationHistory, MongoBackedMigration, \
     establish_datastore_connection, \
     restore as restore_mongo_db, \
     copy_db as copy_mongo_db, \
@@ -56,6 +57,23 @@ class {migration_class_name}({base_class}):
             No Need to handle exceptions -- we will take care of that for you
         """
         raise NotImplementedError
+
+
+'''
+
+QUERYSET_TEMPLATE = '''
+from click import prompt
+from monoarch import {base_class}
+
+
+class {queryset_class_name}({base_class}):
+
+    def run(self):
+        """Write the code here that will perform the mongo dump of the collections that you care about
+        """
+        raise NotImplementedError
+
+
 '''
 
 CONFIG_TEMPLATE = """
@@ -105,6 +123,7 @@ class Config(object):
 
     def __init__(self):
         self.migration_directory = './migrations'
+        self.queryset_directory = './querysets'
         self.config_directory = None
 
     def configure_from_settings_file(self):
@@ -173,13 +192,36 @@ def generate(config, name):
     monarch generate add_indexes_to_user_collection
 
     """
-    create_migration_directory_if_necessary(config.migration_directory)
+    create_package_if_necessary(config.migration_directory)
     migration_name = generate_migration_name(config.migration_directory, name)
     class_name = "{}Migration".format(underscore_to_camel(name))
     output = MIGRATION_TEMPLATE.format(migration_class_name=class_name, base_class='MongoBackedMigration')
     with open(migration_name, 'w') as f:
         f.write(output)
     click.echo("Generated Migration Template: [{}]".format(migration_name))
+
+@cli.command()
+@click.argument('name')
+@pass_config
+def generate_query_set(config, name):
+    """
+    Generates a migration file.  pass it a name.  execute like so:
+
+    monarch generate [migration_name]
+
+    i.e.
+
+    monarch generate add_indexes_to_user_collection
+
+    """
+    create_package_if_necessary(config.queryset_directory)
+    queryset_name = generate_queryset_name(config.queryset_directory, name)
+    class_name = "{}QuerySet".format(underscore_to_camel(name))
+    output = QUERYSET_TEMPLATE.format(queryset_class_name=class_name, base_class='QuerySet')
+    with open(queryset_name, 'w') as f:
+        f.write(output)
+    click.echo("Generated Query Set: [{}]".format(queryset_name))
+
 
 
 @cli.command(name='list_migrations')
@@ -277,7 +319,7 @@ def init(migration_directory):
 
     """
 
-    create_migration_directory_if_necessary(migration_directory)
+    create_package_if_necessary(migration_directory)
     settings_file = os.path.join(os.path.abspath(migration_directory), 'settings.py')
 
     if os.path.exists(settings_file):
@@ -297,9 +339,10 @@ def init(migration_directory):
 
 
 @cli.command()
+@click.option('--query-set', help='provide optional query-set filter, default is the entire db')
 @click.argument('from_to')
 @pass_config
-def copy_db(config, from_to):
+def copy_db(config, from_to, query_set):
     """ Copys a database and imports into another database
 
         Example
@@ -324,11 +367,20 @@ def copy_db(config, from_to):
     if to_db not in config.environments:
         exit_with_message('Environments does not have a specification for {}'.format(to_db))
 
+    query_set_class = None
+    if query_set:
+        if query_set not in querysets(config):
+            exit_with_message('Could not find specified query_set in your queryset folder')
+        else:
+            query_set_class = querysets(config)[query_set]
+
     if click.confirm('Are you SURE you want to copy data from {} into {}?'.format(from_db, to_db)):
         echo()
         echo("Okay, you asked for it ...")
         echo()
-        copy_mongo_db(config.environments[from_db], config.environments[to_db])
+        copy_mongo_db(config.environments[from_db],
+                      config.environments[to_db],
+                      query_set_class)
 
 
 @cli.command()

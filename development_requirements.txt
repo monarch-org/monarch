@@ -2,6 +2,7 @@ six
 boto
 nose
 jinja2
-click
+click==3.3
 mongoengine
 moto
+pymongo==2.7.1
