@@ -64,11 +64,16 @@ class MongoBackedMigration(Migration):
         return migration_meta.state
 
 
-#TODO: Make this use **kwargs
-def dump_db(from_env, temp_dir=None, QuerySet=None):
+def dump_db(from_env, **kwargs):
+    """accepts temp_dir and QuerySet as keyword options"""
 
-    if not temp_dir:
+    if 'temp_dir' in kwargs:
+        temp_dir = kwargs['temp_dir']
+    else:
         temp_dir = mkdtemp()
+
+    if 'QuerySet' in kwargs:
+        QuerySet = kwargs['QuerySet']
 
     echo("env: {}".format(from_env))
 
@@ -107,7 +112,7 @@ def dump_db(from_env, temp_dir=None, QuerySet=None):
 def copy_db(from_env, to_env, query_set=None):
     with temp_directory() as temp_dir:
         # "mongodump -h dharma.mongohq.com:10067 -d spotlight-staging-1 -u spotlight -p V4Mld1ws4C5To0N -o db/backups/"
-        dump_path = dump_db(from_env, temp_dir, query_set)
+        dump_path = dump_db(from_env, temp_dir=temp_dir, QuerySet=query_set)
         restore(dump_path, to_env)
 
 

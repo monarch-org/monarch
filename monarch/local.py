@@ -40,7 +40,7 @@ def backup_localy(environment, local_settings, name, query_set_class=None):
     if not os.path.isdir(backup_dir):
         exit_with_message('Directory [{}] does not exist.  Exiting ...'.format(backup_dir))
 
-    dump_path = dump_db(environment, None, query_set_class)
+    dump_path = dump_db(environment, QuerySet=query_set_class)
     zipf = zipdir(dump_path)
 
     unique_file_path = generate_unique_name(backup_dir, environment, name)
