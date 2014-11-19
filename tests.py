@@ -78,65 +78,12 @@ class {migration_class_name}(MongoBackedMigration):
         raise Exception('Yikes we messed up the database -- oh nooooooooo')
 """
 
-
-V2_TEST_QUERY_SET = """
-from monarch import QuerySet
-import pymongo
-
-
-class AwesomeDogs(QuerySet):
-
-    def run(self):
-
-        # prompts
-        dog_type = click.prompt('Please enter a valid integer', type=int)
-        after_date_string = click.prompt('Please enter a date')
-
-        after = DateTime(after_date_string)
-
-        awesome_dogs =  self.connection['dogs'].find({"type": dog_type,
-                                                      'born_after': after})
-        awesome_dog_ids = [dog.id for dog in awesome_dogs]
-
-        self.dump_collection('dogs', {"_id": {"$in": awesome_dogs_ids}})
-        self.dump_collection('dog_houses', {"dog_id: {"$in": awesome_dogs_ids}})
-
-"""
-
-V3_TEST_QUERY_SET = """
-from monarch import QuerySet
-import pymongo
-
-
-class AwesomeDogs(QuerySet):
-
-    def only(self):
-        return ['dogs', 'cats', 'dog_houses', 'litterboxes']
-
-    def run(self):
-
-        # prompts
-        dog_type = click.prompt('Please enter a valid integer', type=int)
-        after_date_string = click.prompt('Please enter a date')
-
-        after = DateTime(after_date_string)
-
-        awesome_dogs =  self.connection['dogs'].find({"type": dog_type,
-                                                      'born_after': after})
-        awesome_dog_ids = [dog.id for dog in awesome_dogs]
-
-        self.dump_collection('dogs', {"_id": {"$in": awesome_dogs_ids}})
-        self.dump_collection('dog_houses', {"dog_id: {"$in": awesome_dogs_ids}})
-
-"""
-
-
 def assert_normal_execution(result):
     if result.exit_code != 0:
         echo('exit_code: {}'.format(result.exit_code))
         echo('output: {}'.format(result.output))
         echo('exception: {}'.format(result.exception))
-        _,_,tb = result.exc_info
+        _, _, tb = result.exc_info
         echo('trace: {}'.format(traceback.print_tb(tb)))
 
         assert False
@@ -464,6 +411,40 @@ def test_create_query_set():
         assert result.exit_code == 0
 
 
+def set_up_from_db_for_queryset_tests():
+    from_db = get_db(TEST_ENVIRONEMNTS['from_test'])
+    # Dogs
+    from_dogs = from_db.dogs
+    rex = {'name': "Rex", 'type': "Awesome"}
+    rover = {'name': "Rover", 'type': "Silly"}
+    rex_id = from_dogs.insert(rex)
+    rover_id = from_dogs.insert(rover)
+    # Dog Houses
+    from_dog_houses = from_db.dog_houses
+    rex_house = {'name': 'Rex House', 'dog_id': rex_id}
+    rover_house = {'name': 'Rover House', 'dog_id': rover_id}
+    from_dog_houses.insert(rex_house)
+    from_dog_houses.insert(rover_house)
+    assert from_dogs.count() == 2
+    assert from_dog_houses.count() == 2
+
+
+def generate_and_import_queryset_file(cwd, runner, template):
+    # Create the query_set file
+    result = runner.invoke(cli, ['generate_query_set', 'awesome_dogs'])
+    assert_normal_execution(result)
+    #current query_set
+    new_files_generated = glob(cwd + '/querysets/*queryset.py')
+    assert len(new_files_generated) == 1
+    current_query_set = new_files_generated[0]
+    with open(current_query_set, 'w') as f:
+        f.write(V1_TEST_QUERY_SET)
+
+    # ensure that queryset is loaded
+    m = import_module('querysets')
+    reload(m)
+
+
 V1_TEST_QUERY_SET = """
 from monarch import QuerySet
 from click import echo
@@ -488,24 +469,7 @@ def test_basic_query_set_with_copydb():
     with isolated_filesystem_with_path() as cwd:
         initialize_monarch(cwd)
 
-        from_db = get_db(TEST_ENVIRONEMNTS['from_test'])
-
-        # Dogs
-        from_dogs = from_db.dogs
-        rex = {'name': "Rex", 'type': "Awesome"}
-        rover = {'name': "Rover", 'type': "Silly"}
-        rex_id = from_dogs.insert(rex)
-        rover_id = from_dogs.insert(rover)
-
-        # Dog Houses
-        from_dog_houses = from_db.dog_houses
-        rex_house = {'name': 'Rex House', 'dog_id': rex_id}
-        rover_house = {'name': 'Rover House', 'dog_id': rover_id}
-        from_dog_houses.insert(rex_house)
-        from_dog_houses.insert(rover_house)
-
-        assert from_dogs.count() == 2
-        assert from_dog_houses.count() == 2
+        set_up_from_db_for_queryset_tests()
 
         to_db = get_db(TEST_ENVIRONEMNTS['to_test'])
         to_dogs = to_db.dogs
@@ -514,21 +478,7 @@ def test_basic_query_set_with_copydb():
         assert to_dogs.count() == 0
         assert to_dog_houses.count() == 0
 
-        # Create the query_set file
-        result = runner.invoke(cli, ['generate_query_set', 'awesome_dogs'])
-        assert_normal_execution(result)
-
-        #current query_set
-        new_files_generated = glob(cwd + '/querysets/*queryset.py')
-
-        assert len(new_files_generated) == 1
-        current_query_set = new_files_generated[0]
-        with open(current_query_set, 'w') as f:
-            f.write(V1_TEST_QUERY_SET)
-
-        # ensure that queryset is loaded
-        m = import_module('querysets')
-        reload(m)
+        generate_and_import_queryset_file(cwd, runner, V1_TEST_QUERY_SET)
 
         result = runner.invoke(cli, ['copy_db', 'from_test:to_test', '--query-set=AwesomeDogsQuerySet'], input="y\ny\n")
 
@@ -536,7 +486,6 @@ def test_basic_query_set_with_copydb():
 
         eq_(to_dogs.count(), 1)
         eq_(to_dog_houses.count(), 1)
-
 
 @requires_mongoengine
 @with_setup(no_op, clear_mongo_databases)
@@ -548,47 +497,9 @@ def test_basic_query_set_with_backup():
 
         initialize_monarch(cwd, backup_dir=backup_dir)
 
-        from_db = get_db(TEST_ENVIRONEMNTS['from_test'])
+        set_up_from_db_for_queryset_tests()
 
-        # Dogs
-        from_dogs = from_db.dogs
-        rex = {'name': "Rex", 'type': "Awesome"}
-        rover = {'name': "Rover", 'type': "Silly"}
-        rex_id = from_dogs.insert(rex)
-        rover_id = from_dogs.insert(rover)
-
-        # Dog Houses
-        from_dog_houses = from_db.dog_houses
-        rex_house = {'name': 'Rex House', 'dog_id': rex_id}
-        rover_house = {'name': 'Rover House', 'dog_id': rover_id}
-        from_dog_houses.insert(rex_house)
-        from_dog_houses.insert(rover_house)
-
-        assert from_dogs.count() == 2
-        assert from_dog_houses.count() == 2
-
-        to_db = get_db(TEST_ENVIRONEMNTS['to_test'])
-        to_dogs = to_db.dogs
-        to_dog_houses = to_db.dog_houses
-
-        assert to_dogs.count() == 0
-        assert to_dog_houses.count() == 0
-
-        # Create the query_set file
-        result = runner.invoke(cli, ['generate_query_set', 'awesome_dogs'])
-        assert_normal_execution(result)
-
-        #current query_set
-        new_files_generated = glob(cwd + '/querysets/*queryset.py')
-
-        assert len(new_files_generated) == 1
-        current_query_set = new_files_generated[0]
-        with open(current_query_set, 'w') as f:
-            f.write(V1_TEST_QUERY_SET)
-
-        # ensure that queryset is loaded
-        m = import_module('querysets')
-        reload(m)
+        generate_and_import_queryset_file(cwd, runner, V1_TEST_QUERY_SET)
 
         result = runner.invoke(cli, ['backup', 'from_test', '--query-set=AwesomeDogsQuerySet'])
 
@@ -614,7 +525,6 @@ class AwesomeDogsQuerySet(QuerySet):
 
 """
 
-
 @requires_mongoengine
 @with_setup(no_op, clear_mongo_databases)
 def test_prompt_query_set():
@@ -622,24 +532,7 @@ def test_prompt_query_set():
     with isolated_filesystem_with_path() as cwd:
         initialize_monarch(cwd)
 
-        from_db = get_db(TEST_ENVIRONEMNTS['from_test'])
-
-        # Dogs
-        from_dogs = from_db.dogs
-        rex = {'name': "Rex", 'type': "Awesome"}
-        rover = {'name': "Rover", 'type': "Silly"}
-        rex_id = from_dogs.insert(rex)
-        rover_id = from_dogs.insert(rover)
-
-        # Dog Houses
-        from_dog_houses = from_db.dog_houses
-        rex_house = {'name': 'Rex House', 'dog_id': rex_id}
-        rover_house = {'name': 'Rover House', 'dog_id': rover_id}
-        from_dog_houses.insert(rex_house)
-        from_dog_houses.insert(rover_house)
-
-        assert from_dogs.count() == 2
-        assert from_dog_houses.count() == 2
+        set_up_from_db_for_queryset_tests()
 
         to_db = get_db(TEST_ENVIRONEMNTS['to_test'])
         to_dogs = to_db.dogs
@@ -648,21 +541,7 @@ def test_prompt_query_set():
         assert to_dogs.count() == 0
         assert to_dog_houses.count() == 0
 
-        # Create the query_set file
-        result = runner.invoke(cli, ['generate_query_set', 'awesome_dogs'])
-        assert_normal_execution(result)
-
-        #current query_set
-        new_files_generated = glob(cwd + '/querysets/*queryset.py')
-
-        assert len(new_files_generated) == 1
-        current_query_set = new_files_generated[0]
-        with open(current_query_set, 'w') as f:
-            f.write(PROMPT_QUERY_SET)
-
-        # ensure that queryset is loaded
-        m = import_module('querysets')
-        reload(m)
+        generate_and_import_queryset_file(cwd, runner, PROMPT_QUERY_SET)
 
         result = runner.invoke(cli, ['copy_db', 'from_test:to_test', '--query-set=AwesomeDogsQuerySet'], input="y\nRex\ny\n")
 
