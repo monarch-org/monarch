@@ -464,7 +464,6 @@ def test_create_query_set():
         assert result.exit_code == 0
 
 
-
 V1_TEST_QUERY_SET = """
 from monarch import QuerySet
 from click import echo

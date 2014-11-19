@@ -398,8 +398,9 @@ def drop_db(config, environment):
 @cli.command()
 @click.argument('environment')
 @click.option('--name', help='name to prefix the backup with')
+@click.option('--query-set', help='provide optional query-set filter, default is the entire db')
 @pass_config
-def backup(config, environment, name):
+def backup(config, environment, name, query_set):
     """ Backs up a given datastore
         It is configured in the BACKUPS section of settings
         You can back up locally or to S3
@@ -414,10 +415,17 @@ def backup(config, environment, name):
 
     environment = confirm_environment(config, env_name)
 
+    query_set_class = None
+    if query_set:
+        if query_set not in querysets(config):
+            exit_with_message('Could not find specified query_set in your queryset folder')
+        else:
+            query_set_class = querysets(config)[query_set]
+
     if 'LOCAL' in config.backups:
-        backup_localy(environment, config.backups['LOCAL'], name)
+        backup_localy(environment, config.backups['LOCAL'], name, query_set_class)
     elif 'S3' in config.backups:
-        backup_to_s3(environment, config.backups['S3'], name)
+        backup_to_s3(environment, config.backups['S3'], name, query_set_class)
     else:
         exit_with_message('BACKUPS not configured, exiting')
 
