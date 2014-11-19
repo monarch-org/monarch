@@ -205,13 +205,13 @@ def generate(config, name):
 @pass_config
 def generate_query_set(config, name):
     """
-    Generates a migration file.  pass it a name.  execute like so:
+    Generates a query_set file.  pass it a name.  execute like so:
 
-    monarch generate [migration_name]
+    monarch generate_query_set [queryset_name]
 
     i.e.
 
-    monarch generate add_indexes_to_user_collection
+    monarch generate_query_set data_for_account
 
     """
     create_package_if_necessary(config.queryset_directory)
