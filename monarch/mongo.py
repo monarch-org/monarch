@@ -64,6 +64,7 @@ class MongoBackedMigration(Migration):
         return migration_meta.state
 
 
+#TODO: Make this use **kwargs
 def dump_db(from_env, temp_dir=None, QuerySet=None):
 
     if not temp_dir:
