@@ -7,6 +7,7 @@ from click import echo
 
 from .utils import temp_directory
 from .models import Migration, MigrationHistoryStorage
+from .query_sets import querysets
 
 
 def establish_datastore_connection(environment):
@@ -20,7 +21,10 @@ def establish_datastore_connection(environment):
     if 'password' in environment:
         args['password'] = environment['password']
 
-    mongoengine.connect(mongo_db_name, **args)
+    # Using mongoengine connection logic for now
+    # But consider dropping down to pymongo MongoClient
+    # directly in the future
+    return mongoengine.connect(mongo_db_name, **args)
 
 
 class MongoMigrationHistory(MigrationHistoryStorage, mongoengine.Document):
@@ -60,10 +64,16 @@ class MongoBackedMigration(Migration):
         return migration_meta.state
 
 
-def dump_db(from_env, temp_dir=None):
+def dump_db(from_env, **kwargs):
+    """accepts temp_dir and QuerySet as keyword options"""
 
-    if not temp_dir:
+    if 'temp_dir' in kwargs:
+        temp_dir = kwargs['temp_dir']
+    else:
         temp_dir = mkdtemp()
+
+    if 'QuerySet' in kwargs:
+        QuerySet = kwargs['QuerySet']
 
     echo("env: {}".format(from_env))
 
@@ -77,21 +87,32 @@ def dump_db(from_env, temp_dir=None):
     if 'password' in from_env:
         options['-p'] = from_env['password']
 
-    execution_array = ['mongodump']
-    for option in options:
-        execution_array.extend([option, options[option]])
-    echo("Executing: {}".format(execution_array))
-    subprocess.call(execution_array)
+    if QuerySet:
+
+        connection = establish_datastore_connection(from_env)
+        database = connection[from_env['db_name']]
+
+        query_set = QuerySet(database, options)
+
+        query_set.execute()
+
+    else:
+
+        execution_array = ['mongodump']
+        for option in options:
+            execution_array.extend([option, options[option]])
+        echo("Executing: {}".format(execution_array))
+        subprocess.call(execution_array)
 
     # mongorestore -h localhost --drop -d spotlight db/backups/spotlight-staging-1/
     dump_path = "{}/{}".format(temp_dir, from_env['db_name'])
     return dump_path
 
 
-def copy_db(from_env, to_env):
+def copy_db(from_env, to_env, query_set=None):
     with temp_directory() as temp_dir:
         # "mongodump -h dharma.mongohq.com:10067 -d spotlight-staging-1 -u spotlight -p V4Mld1ws4C5To0N -o db/backups/"
-        dump_path = dump_db(from_env, temp_dir)
+        dump_path = dump_db(from_env, temp_dir=temp_dir, QuerySet=query_set)
         restore(dump_path, to_env)
 
 

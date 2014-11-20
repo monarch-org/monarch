@@ -48,9 +48,9 @@ def generate_uniqueish_key(s3_settings, environment, name_prefix):
                 return key
 
 
-def backup_to_s3(environment, s3_settings, name):
+def backup_to_s3(environment, s3_settings, name, query_set_class):
 
-    dump_path = dump_db(environment)
+    dump_path = dump_db(environment, query_set_class)
     zipf = zipdir(dump_path)
 
     key = generate_uniqueish_key(s3_settings, environment, name)

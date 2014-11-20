@@ -30,7 +30,7 @@ def local_backups(local_config):
     return backups
 
 
-def backup_localy(environment, local_settings, name):
+def backup_localy(environment, local_settings, name, query_set_class=None):
 
     if 'backup_dir' not in local_settings:
         exit_with_message('Local Settings not configured correctly, expecting "backup_dir"')
@@ -40,7 +40,7 @@ def backup_localy(environment, local_settings, name):
     if not os.path.isdir(backup_dir):
         exit_with_message('Directory [{}] does not exist.  Exiting ...'.format(backup_dir))
 
-    dump_path = dump_db(environment)
+    dump_path = dump_db(environment, QuerySet=query_set_class)
     zipf = zipdir(dump_path)
 
     unique_file_path = generate_unique_name(backup_dir, environment, name)

@@ -20,8 +20,7 @@ def generate_migration_name(folder, name):
     )
     return os.path.abspath(rel_path)
 
-
-def create_migration_directory_if_necessary(dir):
+def create_package_if_necessary(dir):
     try:
         os.makedirs(dir)
     except OSError as e:
