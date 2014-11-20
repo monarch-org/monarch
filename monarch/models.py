@@ -81,9 +81,6 @@ class QuerySet(object):
         """returns an array of  names of all non system tables in the database"""
         system_table_re = re.compile("system\.")
 
-        click.echo(self.database.collection_names())
-        click.echo([col_name for col_name in self.database.collection_names() if not system_table_re.match(col_name)])
-
         return [col_name for col_name in self.database.collection_names() if not system_table_re.match(col_name)]
 
     def dump_collection(self, collection_name, query=None):
@@ -105,12 +102,10 @@ class QuerySet(object):
         """Should be implemented by the subclass"""
         raise NotImplementedError("This is an abstract class")
 
-    @property
     def only(self):
         """if you want to limit the collections override this and return an array of collection names"""
         return None
 
-    @property
     def exclude(self):
         """if you want to limit the collections override this and return an array of collection names"""
         return None
@@ -118,10 +113,11 @@ class QuerySet(object):
     @property
     def additional_collections(self):
         """returns the collections not specified in the query_set factoring `only` and `exclude`"""
-        include_set = self.only or self.application_collection_names
+        include_set = self.only() or self.application_collection_names
         include_set = set(include_set) - set(self.touched_collections)
-        if self.exclude:
-            include_set = include_set - set(self.exclude)
+
+        if self.exclude():
+            include_set = include_set - set(self.exclude())
 
         return include_set
 

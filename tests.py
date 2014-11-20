@@ -413,32 +413,45 @@ def test_create_query_set():
 
 def set_up_from_db_for_queryset_tests():
     from_db = get_db(TEST_ENVIRONEMNTS['from_test'])
+
     # Dogs
     from_dogs = from_db.dogs
     rex = {'name': "Rex", 'type': "Awesome"}
     rover = {'name': "Rover", 'type': "Silly"}
     rex_id = from_dogs.insert(rex)
     rover_id = from_dogs.insert(rover)
+
+    eq_(from_dogs.count(), 2)
+
     # Dog Houses
     from_dog_houses = from_db.dog_houses
     rex_house = {'name': 'Rex House', 'dog_id': rex_id}
     rover_house = {'name': 'Rover House', 'dog_id': rover_id}
     from_dog_houses.insert(rex_house)
     from_dog_houses.insert(rover_house)
-    assert from_dogs.count() == 2
-    assert from_dog_houses.count() == 2
+
+    eq_(from_dog_houses.count(), 2)
+
+    # Cats
+    from_cats = from_db.cats
+    muffy = {'name': 'Muffy'}
+    puffy = {'name': 'Puffy'}
+    from_cats.insert(muffy)
+    from_cats.insert(puffy)
+
+    eq_(from_cats.count(), 2)
 
 
-def generate_and_import_queryset_file(cwd, runner, template):
+def generate_and_import_queryset_file(cwd, runner, template, file_name):
     # Create the query_set file
-    result = runner.invoke(cli, ['generate_query_set', 'awesome_dogs'])
+    result = runner.invoke(cli, ['generate_query_set', file_name])
     assert_normal_execution(result)
     #current query_set
     new_files_generated = glob(cwd + '/querysets/*queryset.py')
     assert len(new_files_generated) == 1
     current_query_set = new_files_generated[0]
     with open(current_query_set, 'w') as f:
-        f.write(V1_TEST_QUERY_SET)
+        f.write(template)
 
     # ensure that queryset is loaded
     m = import_module('querysets')
@@ -478,7 +491,7 @@ def test_basic_query_set_with_copydb():
         assert to_dogs.count() == 0
         assert to_dog_houses.count() == 0
 
-        generate_and_import_queryset_file(cwd, runner, V1_TEST_QUERY_SET)
+        generate_and_import_queryset_file(cwd, runner, V1_TEST_QUERY_SET, 'awesome_dogs')
 
         result = runner.invoke(cli, ['copy_db', 'from_test:to_test', '--query-set=AwesomeDogsQuerySet'], input="y\ny\n")
 
@@ -486,6 +499,7 @@ def test_basic_query_set_with_copydb():
 
         eq_(to_dogs.count(), 1)
         eq_(to_dog_houses.count(), 1)
+        eq_(to_db.cats.count(), 2)
 
 @requires_mongoengine
 @with_setup(no_op, clear_mongo_databases)
@@ -499,7 +513,7 @@ def test_basic_query_set_with_backup():
 
         set_up_from_db_for_queryset_tests()
 
-        generate_and_import_queryset_file(cwd, runner, V1_TEST_QUERY_SET)
+        generate_and_import_queryset_file(cwd, runner, V1_TEST_QUERY_SET, 'awesome_dogs')
 
         result = runner.invoke(cli, ['backup', 'from_test', '--query-set=AwesomeDogsQuerySet'])
 
@@ -541,7 +555,7 @@ def test_prompt_query_set():
         assert to_dogs.count() == 0
         assert to_dog_houses.count() == 0
 
-        generate_and_import_queryset_file(cwd, runner, PROMPT_QUERY_SET)
+        generate_and_import_queryset_file(cwd, runner, PROMPT_QUERY_SET, 'awesome_dogs')
 
         result = runner.invoke(cli, ['copy_db', 'from_test:to_test', '--query-set=AwesomeDogsQuerySet'], input="y\nRex\ny\n")
 
@@ -549,6 +563,55 @@ def test_prompt_query_set():
 
         eq_(to_dogs.count(), 1)
         eq_(to_dog_houses.count(), 1)
+
+
+EXCLUDE_QUERY_SET = """
+from monarch import QuerySet
+from click import echo, prompt
+
+class ExcludeCatsQuerySet(QuerySet):
+
+    def exclude(self):
+        return ['cats']
+
+    def run(self):
+
+        dog_name = prompt('Who is your favorite dog?')
+
+        awesome_dogs = self.database.dogs.find({"name": dog_name})
+        awesome_dog_ids = [dog['_id'] for dog in awesome_dogs]
+        echo("awesome dog ids: {}".format(awesome_dog_ids))
+
+        self.dump_collection('dogs', {"_id": {"$in": awesome_dog_ids}})
+        self.dump_collection('dog_houses', {"dog_id": {"$in": awesome_dog_ids}})
+
+"""
+
+
+@requires_mongoengine
+@with_setup(clear_mongo_databases, clear_mongo_databases)
+def test_query_set_exclude():
+    runner = CliRunner()
+    with isolated_filesystem_with_path() as cwd:
+        initialize_monarch(cwd)
+
+        set_up_from_db_for_queryset_tests()
+
+        to_db = get_db(TEST_ENVIRONEMNTS['to_test'])
+
+        assert to_db.dogs.count() == 0
+        assert to_db.dog_houses.count() == 0
+        assert to_db.cats.count() == 0
+
+        generate_and_import_queryset_file(cwd, runner, EXCLUDE_QUERY_SET, 'excludes_cats')
+
+        result = runner.invoke(cli, ['copy_db', 'from_test:to_test', '--query-set=ExcludeCatsQuerySet'], input="y\nRex\ny\n")
+
+        assert_normal_execution(result)
+
+        eq_(to_db.dogs.count(), 1)
+        eq_(to_db.dog_houses.count(), 1)
+        eq_(to_db.cats.count(), 0)
 
 if __name__ == "__main__":
     nose.run()
