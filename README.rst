@@ -105,13 +105,13 @@ You can also use click's prompt function to make it dynamic, and prompt the use 
 .. code:: python
 
     from monarch import QuerySet
-    from click import echo
+    from click import echo, prompt
     
     class AccountQuerySet(QuerySet):
     
         def run(self):
     
-            account_id = click.prompt('Please enter a account id', type=int)
+            account_id = prompt('Please enter a account id', type=int)
     
             account_i_care_about = self.database.accounts.find({"_id": account_id})
     
