@@ -83,43 +83,47 @@ of a QuerySet.  You can use these to define the subset of data you would like to
 
 A queryset can look like:
 
-```python
-from monarch import QuerySet
-from click import echo
+.. code:: python
 
-class AwesomeDogsQuerySet(QuerySet):
+    from monarch import QuerySet
+    from click import echo
+    
+    class AwesomeDogsQuerySet(QuerySet):
+    
+        def run(self):
+    
+            awesome_dogs = self.database.dogs.find({"type": "Awesome"})
+            awesome_dog_ids = [dog['_id'] for dog in awesome_dogs]
+            echo("awesome dog ids: {}".format(awesome_dog_ids))
+    
+            self.dump_collection('dogs', {"_id": {"$in": awesome_dog_ids}})
+            self.dump_collection('dog_houses', {"dog_id": {"$in": awesome_dog_ids}})
 
-    def run(self):
-
-        awesome_dogs = self.database.dogs.find({"type": "Awesome"})
-        awesome_dog_ids = [dog['_id'] for dog in awesome_dogs]
-        echo("awesome dog ids: {}".format(awesome_dog_ids))
-
-        self.dump_collection('dogs', {"_id": {"$in": awesome_dog_ids}})
-        self.dump_collection('dog_houses', {"dog_id": {"$in": awesome_dog_ids}})
-```
 
 You can also use click's prompt function to make it dynamic, and prompt the use for input. Like so
 
-```python
-from monarch import QuerySet
-from click import echo
+.. code:: python
 
-class AccountQuerySet(QuerySet):
+    from monarch import QuerySet
+    from click import echo
+    
+    class AccountQuerySet(QuerySet):
+    
+        def run(self):
+    
+            account_id = click.prompt('Please enter a account id', type=int)
+    
+            account_i_care_about = self.database.accounts.find({"_id": account_id})
+    
+            self.dump_collection('account', {"_id": account_id})
+            self.dump_collection('campaigns', {"account_id": account_i_care_about})
 
-    def run(self):
-
-        account_id = click.prompt('Please enter a account id', type=int)
-
-        account_i_care_about = self.database.accounts.find({"_id": account_id})
-
-        self.dump_collection('account', {"_id": account_id})
-        self.dump_collection('campaigns', {"account_id": account_i_care_about})
-```
 
 Then to use them you can pass them into `copy_db` and `backup` with the --query-set options like so:
 
-`copy_db production:development -q AccountQuerySet`
+.. code:: bash
+
+    copy_db production:development -q AccountQuerySet
 
 
 
@@ -187,7 +191,7 @@ Do whatever you want in that `run` method. I mean anything!  Go crazy wild man.
 
 3) **Test the Migration**
 
-.. code:: base
+.. code:: bash
 
     # copy the production db locally
     monarch copy_db production:development
