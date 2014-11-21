@@ -31,7 +31,7 @@ class {migration_class_name}({base_class}):
 
 QUERYSET_TEMPLATE = '''
 from click import prompt
-from monoarch import {base_class}
+from monarch import {base_class}
 
 
 class {queryset_class_name}({base_class}):
