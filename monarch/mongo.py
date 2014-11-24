@@ -2,6 +2,7 @@ import subprocess
 from tempfile import mkdtemp
 
 import click
+import pymongo
 import mongoengine
 from click import echo
 
@@ -13,18 +14,25 @@ from .query_sets import querysets
 def establish_datastore_connection(environment):
     mongo_db_name = environment['db_name']
 
-    args = {}
-    args['host'] = environment['host']
-    args['port'] = environment['port']
+    username_password_couple = ""
     if 'username' in environment:
-        args['username'] = environment['username']
-    if 'password' in environment:
-        args['password'] = environment['password']
+        if 'password' in environment:
+            username_password_couple = "{}:{}@".format(environment['username'], environment['password'])
+        else:
+            username_password_couple = "{}@".format(environment['username'])
 
-    # Using mongoengine connection logic for now
-    # But consider dropping down to pymongo MongoClient
-    # directly in the future
-    return mongoengine.connect(mongo_db_name, **args)
+    if environment['port']:
+        host_and_port = "{}:{}".format(environment['host'], environment['port'])
+    else:
+        host_and_port = environment['host']
+
+    db_name = "/{}".format(environment['db_name'])
+
+    uri = "mongodb://{username_password_couple}{host_and_port}{db_name}".format(username_password_couple=username_password_couple,
+                                                                                host_and_port=host_and_port,
+                                                                                db_name=db_name)
+
+    return mongoengine.connect(mongo_db_name, host=uri)
 
 
 class MongoMigrationHistory(MigrationHistoryStorage, mongoengine.Document):
@@ -88,7 +96,7 @@ def dump_db(from_env, **kwargs):
         options['-p'] = from_env['password']
 
     if QuerySet:
-
+        echo("Env: {}".format(from_env))
         connection = establish_datastore_connection(from_env)
         database = connection[from_env['db_name']]
 

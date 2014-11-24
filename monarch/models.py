@@ -81,6 +81,11 @@ class QuerySet(object):
         """returns an array of  names of all non system tables in the database"""
         system_table_re = re.compile("system\.")
 
+        from logging import error
+
+        error("Database: {}".format(self.database))
+        error("Connection: {}".format(self.database.connection))
+
         return [col_name for col_name in self.database.collection_names() if not system_table_re.match(col_name)]
 
     def dump_collection(self, collection_name, query=None):
