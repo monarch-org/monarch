@@ -520,6 +520,29 @@ def test_basic_query_set_with_backup():
         assert_normal_execution(result)
 
 
+@requires_mongoengine
+@with_setup(no_op, clear_mongo_databases)
+def test_list_query_sets():
+    runner = CliRunner()
+    with isolated_filesystem_with_path() as working_dir:
+        backup_dir = os.path.join(working_dir, 'backups')
+        os.mkdir(backup_dir)
+
+        initialize_monarch(working_dir, backup_dir=backup_dir)
+
+        set_up_from_db_for_queryset_tests()
+
+        generate_and_import_queryset_file(working_dir, runner, V1_TEST_QUERY_SET, 'awesome_dogs')
+
+        result = runner.invoke(cli, ['list_query_sets'])
+
+        echo('tlb output: {}'.format(result.output))
+        echo('tlb exception: {}'.format(result.exception))
+
+        assert result.exit_code == 0
+        assert "AwesomeDogsQuerySet" in result.output
+
+
 PROMPT_QUERY_SET = """
 from monarch import QuerySet
 from click import echo, prompt
