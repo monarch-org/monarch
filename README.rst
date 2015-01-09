@@ -80,6 +80,9 @@ of a QuerySet.  You can use these to define the subset of data you would like to
 ``generate_query_set``
    Generates a new query_set template.  In this template you write the necessary code to perform your query_set
 
+``list_query_sets``
+   Lists the available QuerySets
+
 
 A queryset can look like:
 
