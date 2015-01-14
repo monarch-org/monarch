@@ -58,7 +58,7 @@ def backup_to_s3(environment, s3_settings, name, query_set_class):
     bytes_written = key.set_contents_from_filename(zipf.filename)
 
     # 4) print out the name of the bucket
-    echo("Wrote {} btyes to s3".format(bytes_written))
+    echo("Wrote {} bytes to s3".format(bytes_written))
 
 
 def s3_restore(key, to_enviornment):
