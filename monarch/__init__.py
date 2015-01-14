@@ -374,6 +374,23 @@ def list_environments(config):
 
 
 @cli.command()
+@pass_config
+def list_query_sets(config):
+    """ Lists Query Sets
+    """
+    query_sets_on_file_system = querysets(config)
+
+    if query_sets_on_file_system:
+        click.echo("Here are the query sets:")
+        echo('QUERY SETS')
+        for queryset_name in query_sets_on_file_system:
+            echo(queryset_name)
+
+    else:
+        click.echo("No query sets created")
+
+
+@cli.command()
 @click.argument('from_to')
 @pass_config
 def restore(config, from_to):

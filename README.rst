@@ -55,10 +55,10 @@ Utilities for moving databases between environments.  With support for backup/re
 ``backup <env name>``
     Backs ups a given database.  You can backup to your local file system or to a Amazon S3 bucket
     Make sure you have BACKUPS configured in your migrations/settings.py file
-    It will dump your database and compress it and give it a unquie name
+    It will dump your database and compress it and give it a unique name
 
 ``restore  <backup_name>:<env_name>``
-    Restore a backup into the provided environment.  It will trucacte the database before the import
+    Restore a backup into the provided environment.  It will truncate the database before the import
 
 ``list_backups``
     Lists the available backups
@@ -79,6 +79,9 @@ of a QuerySet.  You can use these to define the subset of data you would like to
 
 ``generate_query_set``
    Generates a new query_set template.  In this template you write the necessary code to perform your query_set
+
+``list_query_sets``
+   Lists the available QuerySets
 
 
 A queryset can look like:
@@ -196,7 +199,7 @@ Do whatever you want in that `run` method. I mean anything!  Go crazy wild man.
     # copy the production db locally
     monarch copy_db production:development
 
-    # check the status of the pending migraitons
+    # check the status of the pending migrations
     monarch list_migrations development
 
     # try running the migrations
