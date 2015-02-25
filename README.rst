@@ -5,8 +5,8 @@ monarch
 
 |Build Status|
 
-.. |Build Status| image:: https://travis-ci.org/jtushman/monarch.svg?branch=master
-    :target: https://travis-ci.org/jtushman/monarch
+.. |Build Status| image:: https://travis-ci.org/monarch-org/monarch.svg?branch=master
+    :target: https://travis-ci.org/monarch-org/monarch.svg?branch=master
 
 
 The Concept
