@@ -490,6 +490,7 @@ def test_basic_query_set_with_copydb():
 
         assert to_dogs.count() == 0
         assert to_dog_houses.count() == 0
+        assert to_db.cats.count() == 0
 
         generate_and_import_queryset_file(cwd, runner, V1_TEST_QUERY_SET, 'awesome_dogs')
 
@@ -499,7 +500,7 @@ def test_basic_query_set_with_copydb():
 
         eq_(to_dogs.count(), 1)
         eq_(to_dog_houses.count(), 1)
-        eq_(to_db.cats.count(), 2)
+        eq_(to_db.cats.count(), 0)
 
 @requires_mongoengine
 @with_setup(no_op, clear_mongo_databases)
