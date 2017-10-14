@@ -8,3 +8,6 @@ install:
   - pip install tox
 script:
   - tox -e $TOX_ENV
+before_install:
+  # Hack! See https://github.com/travis-ci/travis-ci/issues/7940
+  - sudo rm -f /etc/boto.cfg
