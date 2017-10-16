@@ -45,7 +45,11 @@ class MongoMigrationHistory(MigrationHistoryStorage, mongoengine.Document):
 
     @classmethod
     def find_or_create_by_key(cls, migration_key):
-        return cls.objects.get_or_create(key=migration_key)[0]
+        result = cls.objects(key=migration_key)
+        if len(result) == 1:
+            return result[0]
+        else:
+            return cls(key=migration_key).save()
 
     @classmethod
     def find_by_key(cls, migration_key):
