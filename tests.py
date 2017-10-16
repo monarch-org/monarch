@@ -623,6 +623,7 @@ def test_query_set_exclude():
 
         to_db = get_db(TEST_ENVIRONEMNTS['to_test'])
 
+        # start with a clean environment
         assert to_db.dogs.count() == 0
         assert to_db.dog_houses.count() == 0
         assert to_db.cats.count() == 0
