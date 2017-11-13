@@ -209,7 +209,7 @@ def get_db(env):
 
 
 @requires_mongoengine
-@with_setup(no_op, clear_mongo_databases)
+@with_setup(clear_mongo_databases, clear_mongo_databases)
 def test_run_migration():
     runner = CliRunner()
     with isolated_filesystem_with_path() as cwd:
@@ -231,7 +231,7 @@ def test_run_migration():
 
 
 @requires_mongoengine
-@with_setup(no_op, clear_mongo_databases)
+@with_setup(clear_mongo_databases, clear_mongo_databases)
 def test_failed_migration():
     runner = CliRunner()
     with isolated_filesystem_with_path() as cwd:
@@ -263,7 +263,7 @@ def populate_database(env_name):
 
 
 @requires_mongoengine
-@with_setup(no_op, clear_mongo_databases)
+@with_setup(clear_mongo_databases, clear_mongo_databases)
 def test_copy_db():
     runner = CliRunner()
     with isolated_filesystem_with_path() as cwd:
@@ -284,7 +284,7 @@ def test_copy_db():
 
 
 @requires_mongoengine
-@with_setup(no_op, clear_mongo_databases)
+@with_setup(clear_mongo_databases, clear_mongo_databases)
 def test_list_migrations():
     runner = CliRunner()
 
@@ -301,7 +301,7 @@ def test_list_migrations():
 
 
 @requires_mongoengine
-@with_setup(no_op, clear_mongo_databases)
+@with_setup(clear_mongo_databases, clear_mongo_databases)
 def test_one_off_migration():
     runner = CliRunner()
     with isolated_filesystem_with_path() as working_dir:
@@ -331,10 +331,8 @@ def test_one_off_migration():
         assert result.exit_code == 0
 
 
-
-
 @requires_mongoengine
-@with_setup(no_op, clear_mongo_databases)
+@with_setup(clear_mongo_databases, clear_mongo_databases)
 def test_backup_database():
     runner = CliRunner()
     with isolated_filesystem_with_path() as working_dir:
@@ -351,7 +349,7 @@ def test_backup_database():
 
 
 @requires_mongoengine
-@with_setup(no_op, clear_mongo_databases)
+@with_setup(clear_mongo_databases, clear_mongo_databases)
 def test_list_backups():
     runner = CliRunner()
     with isolated_filesystem_with_path() as working_dir:
@@ -375,7 +373,7 @@ def test_list_backups():
 
 
 @requires_mongoengine
-@with_setup(no_op, clear_mongo_databases)
+@with_setup(clear_mongo_databases, clear_mongo_databases)
 def test_restore_database():
     runner = CliRunner()
     with isolated_filesystem_with_path() as working_dir:
@@ -476,7 +474,7 @@ class AwesomeDogsQuerySet(QuerySet):
 """
 
 @requires_mongoengine
-@with_setup(no_op, clear_mongo_databases)
+@with_setup(clear_mongo_databases, clear_mongo_databases)
 def test_basic_query_set_with_copydb():
     runner = CliRunner()
     with isolated_filesystem_with_path() as cwd:
@@ -503,7 +501,7 @@ def test_basic_query_set_with_copydb():
         eq_(to_db.cats.count(), 0)
 
 @requires_mongoengine
-@with_setup(no_op, clear_mongo_databases)
+@with_setup(clear_mongo_databases, clear_mongo_databases)
 def test_basic_query_set_with_backup():
     runner = CliRunner()
     with isolated_filesystem_with_path() as cwd:
@@ -522,7 +520,7 @@ def test_basic_query_set_with_backup():
 
 
 @requires_mongoengine
-@with_setup(no_op, clear_mongo_databases)
+@with_setup(clear_mongo_databases, clear_mongo_databases)
 def test_list_query_sets():
     runner = CliRunner()
     with isolated_filesystem_with_path() as working_dir:
@@ -564,7 +562,7 @@ class AwesomeDogsQuerySet(QuerySet):
 """
 
 @requires_mongoengine
-@with_setup(no_op, clear_mongo_databases)
+@with_setup(clear_mongo_databases, clear_mongo_databases)
 def test_prompt_query_set():
     runner = CliRunner()
     with isolated_filesystem_with_path() as cwd:
@@ -623,6 +621,7 @@ def test_query_set_exclude():
 
         to_db = get_db(TEST_ENVIRONEMNTS['to_test'])
 
+        # start with a clean environment
         assert to_db.dogs.count() == 0
         assert to_db.dog_houses.count() == 0
         assert to_db.cats.count() == 0
