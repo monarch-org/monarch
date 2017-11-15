@@ -27,20 +27,22 @@ mongo_port = int(os.environ.get('MONARCH_MONGO_DB_PORT', 27017))
 TEST_ENVIRONEMNTS = {
     'test': {
         'db_name': 'test_monarch',
-        'host': 'localhost',
-        'port': mongo_port
+        'host': 'localhost:{}'.format(mongo_port)
     },
     'from_test': {
         'db_name': 'from_monarch_test',
-        'host': 'localhost',
-        'port': mongo_port
+        'host': 'localhost:{}'.format(mongo_port)
     },
     'to_test': {
         'db_name': 'to_monarch_test',
-        'host': 'localhost',
-        'port': mongo_port
+        'host': 'localhost:{}'.format(mongo_port)
     },
 }
+
+
+def generate_mongo_uri(environ):
+    """this assumes a environ with db_name and host is well formed in the test_environment"""
+    return "mongodb:://{}/{}".format(environ['host'], environ['db_name'])
 
 BACKUPS = {
     'LOCAL': {
@@ -135,7 +137,8 @@ def requires_mongoengine(func):
 def clear_mongo_databases():
     for env_name in TEST_ENVIRONEMNTS:
         env = TEST_ENVIRONEMNTS[env_name]
-        client = MongoClient(host=env['host'], port=env['port'])
+        host, port = env['host'].split(':')
+        client = MongoClient(host=host, port=int(port))
         client.drop_database(env['db_name'])
 
 
@@ -190,21 +193,15 @@ def first_migration(working_dir):
     return new_files_generated[0]
 
 
-def register_connections():
-    s = import_module('migrations.settings')
-    for env_name in s.ENVIRONMENTS:
-        env = s.ENVIRONMENTS[env_name]
-        mongoengine.register_connection(env_name, env['db_name'], port=env['port'])
-
-
 def establish_connection(env_name):
     s = import_module('migrations.settings')
     env = s.ENVIRONMENTS[env_name]
-    mongoengine.connect(env['db_name'], port=env['port'])
+    mongoengine.connect(env['db_name'], host=generate_mongo_uri(env))
 
 
 def get_db(env):
-    client = MongoClient(host=env['host'], port=env['port'])
+    host, port = env['host'].split(':')
+    client = MongoClient(host=host, port=int(port))
     return client[env['db_name']]
 
 
@@ -215,7 +212,6 @@ def test_run_migration():
     with isolated_filesystem_with_path() as cwd:
         initialize_monarch(cwd)
         runner.invoke(cli, ['generate', 'add_column_to_user_table'])
-
         # Update Migration Template with a *proper* migration
         current_migration = first_migration(cwd)
         class_name = "{}Migration".format('AddColumnToUserTable')
@@ -321,7 +317,7 @@ def test_one_off_migration():
 
         list_result = runner.invoke(cli, ['list_migrations', 'test'])
 
-        a_migration_to_run = list_result.output.split('\n')[3].split(' ')[0]
+        a_migration_to_run = list_result.output.split('\n')[4].split(' ')[0]
 
         result = runner.invoke(cli, ['migrate_one', a_migration_to_run, 'test'])
         assert result.exit_code == 0

@@ -520,6 +520,12 @@ def check_for_hazardous_operations(config, env_name):
         if db_host in ('localhost', '127.0.0.1'):
             return False
 
+        if 'localhost' in db_host:
+            return False
+
+        if '127.0.0.1' in db_host:
+            return False
+
         if ends_with_dot_local.search(db_host) is not None:
             return False
 

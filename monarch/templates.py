@@ -50,15 +50,14 @@ CONFIG_TEMPLATE = """
 
 ENVIRONMENTS = {
     'production': {
-        'host': 'your-host',
-        'port': 12345,
+        'host': 'your-host:12345,your-other-host:12347',
         'db_name': 'your-db-name',
         'username': 'asdf',
-        'password': 'asdfdf'
+        'password': 'asdfdf',
+        'sslCAFile': '/path/to/production.pem'
     },
     'development': {
-        'host': 'your-host',
-        'port': 12345,
+        'host': 'your-host:12345',
         'db_name': 'your-db-name',
         'username': 'asdf',
         'password': 'asdfdf'

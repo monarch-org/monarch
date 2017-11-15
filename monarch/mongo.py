@@ -21,10 +21,10 @@ def establish_datastore_connection(environment):
         else:
             username_password_couple = "{}@".format(environment['username'])
 
-    if environment['port']:
-        host_and_port = "{}:{}".format(environment['host'], environment['port'])
-    else:
-        host_and_port = environment['host']
+    if 'port' in environment:
+        raise Exception("port no longer supported, use the host:port syntax in the host parameter")
+
+    host_and_port = environment['host']
 
     db_name = "/{}".format(environment['db_name'])
 
@@ -32,6 +32,11 @@ def establish_datastore_connection(environment):
                                                                                 host_and_port=host_and_port,
                                                                                 db_name=db_name)
 
+    if 'sslCAFile' in environment:
+        echo('appending ssl')
+        uri = "{}?ssl=true&ssl_ca_certs={}".format(uri, environment['sslCAFile'])
+
+    echo('executing: {}'.format(uri))
     return mongoengine.connect(mongo_db_name, host=uri)
 
 
@@ -90,7 +95,7 @@ def dump_db(from_env, **kwargs):
     echo("env: {}".format(from_env))
 
     options = {
-        '-h': "{}:{}".format(from_env['host'], str(from_env['port'])),
+        '-h': from_env['host'],
         '-d': from_env['db_name'],
         '-o': temp_dir
     }
@@ -111,6 +116,10 @@ def dump_db(from_env, **kwargs):
     else:
 
         execution_array = ['mongodump']
+        if 'sslCAFile' in from_env:
+            execution_array.append('--ssl')
+            execution_array.extend(['--sslCAFile', from_env['sslCAFile']])
+
         for option in options:
             execution_array.extend([option, options[option]])
         echo("Executing: {}".format(execution_array))
@@ -134,7 +143,7 @@ def restore(dump_path, to_env):
     drop(to_env)
 
     options = {
-        '-h': "{}:{}".format(to_env['host'], str(to_env['port'])),
+        '-h': to_env['host'],
         '-d': to_env['db_name'],
     }
 
@@ -145,6 +154,11 @@ def restore(dump_path, to_env):
         options['-p'] = to_env['password']
 
     execution_array = ['mongorestore', '--drop']
+
+    if 'sslCAFile' in to_env:
+        execution_array.append('--ssl')
+        execution_array.extend(['--sslCAFile', to_env['sslCAFile']])
+
     for option in options:
         execution_array.extend([option, options[option]])
 
@@ -157,12 +171,17 @@ def restore(dump_path, to_env):
 def drop(environ):
 
     options = {
-        '--host': environ['host'],
-        '--port': str(environ['port']),
         '--eval': '"db.dropDatabase()"'
     }
 
-    execution_array = ['mongo', environ['db_name']]
+    database_string = "{}/{}".format(environ['host'], environ['db_name'])
+
+    execution_array = ['mongo', database_string]
+
+    if 'sslCAFile' in environ:
+        execution_array.append('--ssl')
+        execution_array.extend(['--sslCAFile', environ['sslCAFile']])
+
     for option in options:
         execution_array.extend([option, options[option]])
 
