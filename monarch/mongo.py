@@ -132,14 +132,11 @@ def dump_db(from_env, **kwargs):
 
 def copy_db(from_env, to_env, query_set=None):
     with temp_directory() as temp_dir:
-        # "mongodump -h dharma.mongohq.com:10067 -d spotlight-staging-1 -u spotlight -p V4Mld1ws4C5To0N -o db/backups/"
         dump_path = dump_db(from_env, temp_dir=temp_dir, QuerySet=query_set)
         restore(dump_path, to_env)
 
 
 def restore(dump_path, to_env):
-    # mongorestore -h localhost --drop -d spotlight db/backups/spotlight-staging-1/
-
     drop(to_env)
 
     options = {
