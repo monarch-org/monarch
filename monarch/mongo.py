@@ -105,7 +105,7 @@ def dump_db(from_env, **kwargs):
         options['-p'] = from_env['password']
 
     if QuerySet:
-        echo("Env: {}".format(from_env))
+        echo("In Query Set: Env: {}".format(from_env))
         connection = establish_datastore_connection(from_env)
         database = connection[from_env['db_name']]
 
