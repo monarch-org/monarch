@@ -494,7 +494,10 @@ def test_basic_query_set_with_copydb():
 
         eq_(to_dogs.count(), 1)
         eq_(to_dog_houses.count(), 1)
-        eq_(to_db.cats.count(), 0)
+
+        # If you do not want to include cats, you need to either setup the include or exclude properties on
+        # QuerySet
+        eq_(to_db.cats.count(), 2)
 
 @requires_mongoengine
 @with_setup(clear_mongo_databases, clear_mongo_databases)

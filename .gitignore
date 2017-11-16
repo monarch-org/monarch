@@ -25,4 +25,7 @@ clone_staging.sh
 *.egg-info/
 migrations/
 dist/
-nose-1.3.3-py2.7.egg
+
+# for local tox testing
+.tox/
+.eggs/
