@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import errno
 import inspect
 import collections
@@ -39,6 +40,9 @@ def find_migrations(config):
     migrations = {}
     for file in glob('{}/*_migration.py'.format(config.migration_directory)):
         migration_name = os.path.splitext(os.path.basename(file))[0]
+        if sys.version_info >= (3, 3):
+            from importlib import invalidate_caches
+            invalidate_caches()
         migration_module = import_module("migrations.{}".format(migration_name))
         for name, obj in inspect.getmembers(migration_module):
             if inspect.isclass(obj) and re.search('Migration$', name) and name not in ['BaseMigration',

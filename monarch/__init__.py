@@ -3,6 +3,7 @@ import os
 import re
 import sys
 from importlib import import_module
+from six import iteritems
 
 # 3rd Party Imports
 import click
@@ -183,7 +184,7 @@ def migrate(config, environment):
     migrations = find_migrations(config)
     if migrations:
         establish_datastore_connection(config.environments[environment])
-        for k, migration_class in migrations.iteritems():
+        for k, migration_class in iteritems(migrations):
             migration_instance = migration_class()
 
             # 3) Run the migration -- it will only run if it has not yet been run yet

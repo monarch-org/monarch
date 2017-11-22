@@ -13,7 +13,7 @@ def get_packages():
 
 setup(
     name='monarch',
-    version='0.1.10',
+    version='0.1.11',
     description='The un-migration migration tool',
     url='http://github.com/jtushman/monarch',
     author='Jonathan Tushman',
@@ -23,7 +23,7 @@ setup(
         'Click>2.0',
         'jinja2',
         'mongoengine',
-        'boto'
+        'boto',
     ],
     tests_require=['nose'],
     test_suite='nose.collector',
@@ -35,6 +35,6 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
     ],
 )

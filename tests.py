@@ -17,7 +17,11 @@ from click import echo
 from pymongo import MongoClient
 from nose.tools import with_setup
 from click.testing import CliRunner
+
+# backward / forward support for reload
+from six.moves import reload_module
 from nose.plugins.skip import SkipTest
+
 
 # Local
 from monarch import cli, create_package_if_necessary
@@ -153,16 +157,19 @@ def initialize_monarch(working_dir, backup_dir=None):
             f.write(TEST_CONFIG)
 
     m = import_module('migrations')
-    reload(m)
+    reload_module(m)
     s = import_module('migrations.settings')
-    reload(s)
+    reload_module(s)
 
 
 def ensure_current_migrations_module_is_loaded():
     # everytime within the same python process we add migrations we need to reload the migrations module
     # for it could be cached from a previous test
+    if sys.version_info >= (3, 3):
+        from importlib import invalidate_caches
+        invalidate_caches()
     m = import_module('migrations')
-    reload(m)
+    reload_module(m)
 
 
 def test_create_migration():
@@ -449,7 +456,7 @@ def generate_and_import_queryset_file(cwd, runner, template, file_name):
 
     # ensure that queryset is loaded
     m = import_module('querysets')
-    reload(m)
+    reload_module(m)
 
 
 V1_TEST_QUERY_SET = """
